@@ -24,7 +24,7 @@ HOME_COORDINATES              = (-35.3632607, 149.1652351)
 ERROR_LIMIT_DISTANCE          = .4 # 30cm TODO: pick a better name 
 TIME_INFORM_RATE              = 10 # seconds. How often log time
 QUALITY_ATTRUBUTE_INFORM_RATE = 5  # seconds. 
-STABLE_BUFFER_TIME            = 4  # Seconds time to wait after each command 
+STABLE_BUFFER_TIME            = 4.0  # Seconds time to wait after each command 
 
 
 class Error(object):
@@ -163,7 +163,10 @@ class ROSHandler(object):
             Log("System landing...")
         else:
             Error("System is not landing.")
-        success = self.check_land_completion(alt, wait)
+        if wait == None:
+            success = self.check_land_completion(alt)
+        else:
+            success = self.check_land_completion(alt, wait)
         if success:
             Log('System has landed')
         else:
@@ -348,8 +351,6 @@ class ROSHandler(object):
             if fail:
                 report_data['FailureFlags'] = reason
                 self.mission_on = False
-
-                
             else:
                 qua_time, qua_report = self.check_quality_attributes(\
                     quality_attributes,report_data['QualityAttributes'], qua_time)
@@ -410,11 +411,10 @@ class Mission(object):
             raise
 
     def execute_extraction(self, action_data, quality_attributes, intents, \
-        failure_flag):
+        failure_flags):
         ros = ROSHandler('mavros')
         main = rospy.init_node('HoustonMonitor')
-        initial_location = action_data
-        initial_location[0]
+        
         # TODO: Allow Houston to save locations of interest. In this case for home locaiton
         # diferent from HOME, since we are dealing with a posible starting home 
 
@@ -422,12 +422,16 @@ class Mission(object):
             thread.start_new_thread(ros.ros_monitor, (quality_attributes, intents, \
                 failure_flags))
             time.sleep(2)
+            initial_x_y = ros.get_current_x_y()
             ros.ros_command_takeoff(action_data[6])
             ros.ros_command_goto(action_data, False)
             ros.ros_command_land(action_data[6], action_data[7]) # 7 wait time
             ros.ros_command_takeoff(action_data[6])
+            action_data[0] = initial_x_y[0]
+            action_data[1] = initial_x_y[1]
             ros.ros_command_goto(action_data, False)
             ros.ros_command_land(action_data[6])
+            ros.ros_set_mission_over()
         except:
             raise
     # Checks that all the required parameters for a correct mission run are present 
@@ -492,8 +496,7 @@ class Mission(object):
             end_z   = float(mission_action['y_d'])
             alt     = float(mission_action['alt'])
             wait    = float(mission_action['wait'])
-            action_data.append((start_x,start_y,start_z,end_x,end_y,end_z,alt,\
-                alt,wait))
+            action_data = [start_x,start_y,start_z,end_x,end_y,end_z,alt,wait]
             self.execute_extraction(action_data,quality_attributes,\
                 intents,failure_flags)
         else:
