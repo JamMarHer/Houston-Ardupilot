@@ -29,10 +29,10 @@
 
 			"Intents":
 			{
-				"Time": "<10",  
-				"Battery": "<.6",  
+				"Time": "10",  
+				"Battery": ".6",  
 				"MaxHeight": "20",  
-				"MinHeight": ""
+				"MinHeight": "10"
 			},
 
 			"FailureFlags":

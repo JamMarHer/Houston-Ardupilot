@@ -25,15 +25,16 @@
 				"Time": "True",
 				"Battery": "False",
 				"MaxHeight": "True",
-				"MinHeight": "True"
+				"MinHeight": "True",
+				"DistanceTraveled": "True"
 			},
 
 			"Intents":
 			{
-				"Time": "<10",  
-				"Battery": "<.6",  
+				"Time": "10",  
+				"Battery": ".6",  
 				"MaxHeight": "20",  
-				"MinHeight": ""
+				"MinHeight": "10"
 			},
 
 			"FailureFlags":
@@ -41,7 +42,8 @@
 				"Time":	"120.0",
 				"Battery": "90",
 				"SystemShutdown":"True",
-				"MaxHeight":      "30"
+				"MaxHeight":      "30",
+				"MinHeight": "10"
 			}
 						
 		}
