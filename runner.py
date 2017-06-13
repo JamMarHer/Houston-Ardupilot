@@ -19,10 +19,6 @@ from mavros_msgs.msg   import BatteryStatus
 from sensor_msgs.msg   import NavSatFix
 from mavros_msgs.srv   import CommandLong, SetMode, CommandBool, CommandTOL
 
-# TODO: Check for mavros first 
-# Command IDs in MAVLINK
-#COMMANDS = {"TAKEOFF": 24, "SETMODE": 176, "ARM": 400 }
-#home coordinates
 HOME_COORDINATES              = (-35.3632607, 149.1652351) 
 ERROR_LIMIT_DISTANCE          = .4 # 30cm TODO: pick a better name 
 TIME_INFORM_RATE              = 10 # seconds. How often log time
