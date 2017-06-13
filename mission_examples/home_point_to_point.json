@@ -40,7 +40,8 @@
 				"Time":	"40.0",
 				"Battery": "90",
 				"SystemShutdown":"True",
-				"MaxHeight":      "30"
+				"MaxHeight":      "30",
+				"MinHeight":      "20"
 			}
 						
 		}

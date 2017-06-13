@@ -4,17 +4,20 @@
 
 import time
 import json
+import os
 import sys
-import rospy
-import math
 import thread
-from geopy.distance import great_circle
+import math
 
-from nav_msgs.msg import Odometry
+import rospy
+import xmlrpclib
+
+from geopy.distance    import great_circle
+from nav_msgs.msg      import Odometry
 from geometry_msgs.msg import PoseStamped
-from mavros_msgs.msg import BatteryStatus
-from sensor_msgs.msg import NavSatFix
-from mavros_msgs.srv import CommandLong, SetMode, CommandBool, CommandTOL
+from mavros_msgs.msg   import BatteryStatus
+from sensor_msgs.msg   import NavSatFix
+from mavros_msgs.srv   import CommandLong, SetMode, CommandBool, CommandTOL
 
 # TODO: Check for mavros first 
 # Command IDs in MAVLINK
@@ -30,25 +33,12 @@ STABLE_BUFFER_TIME            = 4.0  # Seconds time to wait after each command
 class Error(object):
 
     def __init__(self, error):
-        self.error = error
-    
-    def format_error(self):
-        print '[FORMAT ERROR] JSON file is not properly formated. ('+\
-        self.error+')'
-        exit()
-
-    def thread_error(self):
-        print '[THREAD ERROR] '+ self.error
-        exit()
-    def failure_flag(self):
-        print '[FAILURE FLAG] '
-        exit()
-
+        print '[ERROR]: ' + error
 
 class Log(object):
 
     def __init__(self, log):
-        print "[LOG]: " + log
+        print '[LOG]: ' + log
 
 
 class ROSHandler(object):
@@ -68,6 +58,16 @@ class ROSHandler(object):
 
         self.global_alt                 = [0,0]
         
+
+    def check_mavros(self):
+        m = xmlrpclib.ServerProxy(os.environ['ROS_MASTER_URI'])
+        code, status_message, uri = m.lookupNode('/mavros', '/mavros')
+        if code == 1:
+            return True
+        else:
+            return False
+
+
     def check_goto_completion(self, expected_coor, pose, pub):
         local_action_time = time.time()
         success = True
@@ -174,8 +174,10 @@ class ROSHandler(object):
 
 
     def get_current_x_y(self):
-        x = great_circle(HOME_COORDINATES, ( HOME_COORDINATES[0], self.current_global_coordinates[1],)).meters
-        y = great_circle(HOME_COORDINATES, (self.current_global_coordinates[0], HOME_COORDINATES[1],)).meters
+        x = great_circle(HOME_COORDINATES, ( HOME_COORDINATES[0], \
+            self.current_global_coordinates[1],)).meters
+        y = great_circle(HOME_COORDINATES, (self.current_global_coordinates[0],\
+         HOME_COORDINATES[1],)).meters
         if HOME_COORDINATES[0]> self.current_global_coordinates[0]:
             y *= -1
         if HOME_COORDINATES[1]> self.current_global_coordinates[1]:
@@ -190,7 +192,7 @@ class ROSHandler(object):
         if float("{0:.0f}".format(math.fabs(y_distance))) == 0:
             expected_lat = self.initial_global_coordinates[0]
         else:
-            if target[1]> x_y[1]:
+            if target['y']> x_y[1]:
                 expected_lat  = self.initial_global_coordinates[0] + ((y_distance / \
                     6378000.0) * (180.0/math.pi))
             else:
@@ -199,7 +201,7 @@ class ROSHandler(object):
         if float("{0:.0f}".format(math.fabs(x_distance))) == 0:
             expected_long = self.initial_global_coordinates[1]
         else:
-            if target[0]> x_y[0]:
+            if target['x']> x_y[0]:
                 expected_long = self.initial_global_coordinates[1] + ((x_distance / \
                     6378000.0) * (180.0/math.pi) / math.cos(math.radians(\
                     self.initial_global_coordinates[0])))
@@ -225,16 +227,16 @@ class ROSHandler(object):
         goto_publisher = rospy.Publisher('/mavros/setpoint_position/local',\
             PoseStamped, queue_size=10)
         pose = PoseStamped()
-        pose.pose.position.x = target[0]
-        pose.pose.position.y = target[1]
-        pose.pose.position.z = target[2]
+        pose.pose.position.x = target['x']
+        pose.pose.position.y = target['y']
+        pose.pose.position.z = target['z']
         expected_lat      = None
         expected_long     = None
         expected_coor     = None
         expected_distance = None
 
         # 0,0 is set to HOME which is the starting position of the system. 
-        if target[0] == 0 and target[1] == 0:
+        if target['x'] == 0 and target['y'] == 0:
             expected_coor = (HOME_COORDINATES[0], HOME_COORDINATES[1])
             
             expected_distance = great_circle(self.initial_global_coordinates, \
@@ -244,8 +246,10 @@ class ROSHandler(object):
         else:
             current_x, current_y = self.get_current_x_y()
             x_y = (current_x, current_y)
-            x_distance = euclidean((target[0], 0),(current_x, 0)) - ERROR_LIMIT_DISTANCE
-            y_distance = euclidean((0, target[1]),(0, current_y)) - ERROR_LIMIT_DISTANCE
+            x_distance = euclidean((target['x'], 0),(current_x, 0)) - \
+                ERROR_LIMIT_DISTANCE
+            y_distance = euclidean((0, target['y']),(0, current_y)) - \
+                ERROR_LIMIT_DISTANCE
             expected_lat, expected_long = self.get_expected_lat_long(x_y, target, \
                 x_distance, y_distance)
             expected_coor = (expected_lat, expected_long)
@@ -257,7 +261,8 @@ class ROSHandler(object):
 
 
         self.current_global_coordinates = self.initial_global_coordinates
-        Log('Remaining distance to travel :  ' + str( great_circle(self.current_global_coordinates,expected_coor).meters))
+        Log('Remaining distance to travel :  ' + str( great_circle(\
+            self.current_global_coordinates,expected_coor).meters))
         success = self.check_goto_completion(expected_coor, pose, goto_publisher)
         if success:
             Log('Position reached')
@@ -374,19 +379,26 @@ class Report(object):
 
 class Mission(object):
 
+    def initial_check(self):
+        ros = ROSHandler('mavros')
+        main = rospy.init_node('HoustonMonitor')
+        if not ros.check_mavros():
+            Error('Missing mavros')
+            sys.exit()
+        return ros, main
+
     # Starts mission point to point. Function starts a monitor thread which constantly 
     # updates the systems location and data required for the mission.
     def execute_point_to_point(self, action_data, quality_attributes, intents, \
         failure_flags):
-        ros = ROSHandler('mavros')
-        main = rospy.init_node('HoustonMonitor')
+        ros, main = self.initial_check()
         try:
             thread.start_new_thread(ros.ros_monitor, (quality_attributes, intents, \
              failure_flags))
             time.sleep(2) # TODO Check for populated
-            ros.ros_command_takeoff(action_data[6]) #position 6 is alt
+            ros.ros_command_takeoff(action_data['alt']) #position 6 is alt
             ros.ros_command_goto(action_data, False)
-            ros.ros_command_land(action_data[6])
+            ros.ros_command_land(action_data['alt'])
             ros.ros_set_mission_over()
 
         except:
@@ -395,42 +407,37 @@ class Mission(object):
 
     def execute_multiple_point_to_point(self, action_data, quality_attributes,\
         intents, failure_flags):
-        ros = ROSHandler('mavros')
-        main = rospy.init_node('HoustonMonitor')
+        ros, main = self.initial_check()
         try:
             thread.start_new_thread(ros.ros_monitor, (quality_attributes, intents, \
                 failure_flags))
             time.sleep(2)
             # TODO: Mulitple altitudes 
-            ros.ros_command_takeoff(action_data[6])
+            ros.ros_command_takeoff(action_data[0]['alt'])
             for target in action_data:
                 ros.ros_command_goto(target, True)
-            ros.ros_command_land(action_data[6])
+            ros.ros_command_land(action_data[0]['alt'])
             ros.ros_set_mission_over()
         except:
             raise
 
     def execute_extraction(self, action_data, quality_attributes, intents, \
         failure_flags):
-        ros = ROSHandler('mavros')
-        main = rospy.init_node('HoustonMonitor')
+        ros, main = self.initial_check()
         
-        # TODO: Allow Houston to save locations of interest. In this case for home locaiton
-        # diferent from HOME, since we are dealing with a posible starting home 
-
         try:
             thread.start_new_thread(ros.ros_monitor, (quality_attributes, intents, \
                 failure_flags))
             time.sleep(2)
             initial_x_y = ros.get_current_x_y()
-            ros.ros_command_takeoff(action_data[6])
+            ros.ros_command_takeoff(action_data['alt'])
             ros.ros_command_goto(action_data, False)
-            ros.ros_command_land(action_data[6], action_data[7]) # 7 wait time
-            ros.ros_command_takeoff(action_data[6])
-            action_data[0] = initial_x_y[0]
-            action_data[1] = initial_x_y[1]
+            ros.ros_command_land(action_data['alt'], action_data['wait']) # 7 wait time
+            ros.ros_command_takeoff(action_data['alt'])
+            action_data['x'] = initial_x_y[0]
+            action_data['y'] = initial_x_y[1]
             ros.ros_command_goto(action_data, False)
-            ros.ros_command_land(action_data[6])
+            ros.ros_command_land(action_data['alt'])
             ros.ros_set_mission_over()
         except:
             raise
@@ -449,11 +456,35 @@ class Mission(object):
         else:
             Error("Intents not found")
         if 'FailureFlags' in parameters:
-            if not all (param in parameters['FailureFlags'] for param in gen_parameters):
+            if not all (param in parameters['FailureFlags'] \
+                for param in gen_parameters):
                 Error("FailureFlags description does not have enough attributes")
         else:
             Error("FailureFlags not found")
         return True
+
+    def get_params(self, mission_action, multiple_actions = False):
+        params_to_return = {'x':None,'y':None,'z':None,'x_d':None,'y_d':None,\
+        'z_d':None,'alt':None,'wait':None,'Type':None}
+        params_to_return_multiple_case = []
+        if multiple_actions:
+            count = 0
+            for locations in mission_action['Locations']:
+                params = {'x':None,'y':None,'z':None,'x_d':None,'y_d':None,\
+                'z_d':None,'alt':None,'wait':None,'Type':None}
+                for param in locations:
+                    if param == 'Type':
+                        continue
+                    params[param] = float(locations[param])
+                params_to_return_multiple_case.append(params)
+            return params_to_return_multiple_case
+        else:
+            for param in mission_action:
+                if param == 'Type':
+                    continue
+                params_to_return[param] = float(mission_action[param])
+            return params_to_return
+
 
     # Executes mission
     def execute(self):
@@ -462,41 +493,17 @@ class Mission(object):
         quality_attributes = self.mission_info['QualityAttributes']
         intents = self.mission_info['Intents']
         failure_flags = self.mission_info['FailureFlags']
+
         if (mission_action['Type'] == 'PTP') and parameter_pass:
-            start_x = float(mission_action['x'])
-            start_y = float(mission_action['y'])
-            start_z = float(mission_action['z'])
-            end_x   = float(mission_action['x_d'])
-            end_y   = float(mission_action['y_d'])
-            end_z   = float(mission_action['y_d'])
-            alt     = float(mission_action['alt'])
-            action_data = (start_x, start_y, start_z, end_x, end_y, end_z, alt)
+            action_data = self.get_params(mission_action)
             self.execute_point_to_point(action_data, quality_attributes, intents,\
              failure_flags)
         elif (mission_action['Type'] == 'MPTP' and parameter_pass):
-            action_data = []
-            for location in mission_action['Locations']:
-                start_x = float(location['x'])
-                start_y = float(location['y'])
-                start_z = float(location['z'])
-                end_x   = float(location['x_d'])
-                end_y   = float(location['y_d'])
-                end_z   = float(location['y_d'])
-                alt     = float(location['alt'])
-                action_data.append((start_x,start_y,start_z,end_x,end_y,end_z,alt))
+            action_data = self.get_params(mission_action, True)
             self.execute_multiple_point_to_point(action_data,quality_attributes,\
                 intents,failure_flags)
         elif (mission_action['Type'] == 'Extraction' and parameter_pass):
-            action_data = []
-            start_x = float(mission_action['x'])
-            start_y = float(mission_action['y'])
-            start_z = float(mission_action['z'])
-            end_x   = float(mission_action['x_d'])
-            end_y   = float(mission_action['y_d'])
-            end_z   = float(mission_action['y_d'])
-            alt     = float(mission_action['alt'])
-            wait    = float(mission_action['wait'])
-            action_data = [start_x,start_y,start_z,end_x,end_y,end_z,alt,wait]
+            action_data = self.get_params(mission_action)
             self.execute_extraction(action_data,quality_attributes,\
                 intents,failure_flags)
         else:
@@ -543,6 +550,7 @@ def euclidean(a, b):
     return math.sqrt(d)
 
 
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print ('Please provide a mission description file. (JSON)')
@@ -550,13 +558,6 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as file:
         json_file = json.load(file)
 
-    #check_json(json_file)
-    #mission = Mission(json_file['MDescription'])
-    # done this way since the only mission currently supported is point to point
-    #mission_results = mission.execute()
-
-
     check_json(json_file)
     mission = Mission(json_file['MDescription'])
-    # done this way since the only mission currently supported is point to point
     mission_results = mission.execute()
