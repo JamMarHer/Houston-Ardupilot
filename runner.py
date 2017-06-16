@@ -283,7 +283,8 @@ class ROSHandler(object):
             self.initial_set[0]                   = True
         self.current_local_position[0]            = data.pose.position.x
         self.current_local_position[1]            = data.pose.position.y
-        self.current_local_position[2]            = data.pose.position.z
+        self.current_local_position[2
+                .]            = data.pose.position.z
         
 
     # Callback for global position sub
