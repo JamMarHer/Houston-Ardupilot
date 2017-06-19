@@ -19,7 +19,7 @@ class RandomMissionGenerator(object):
 
 
     def get_random_by_type(self, param):
-        if param == 'alt' or param == 'z':
+        if param == 'alt':
             return random.randint(1, 50)
         elif param == 'wait':
             return random.randint(0,50)
@@ -33,9 +33,10 @@ class RandomMissionGenerator(object):
             location = {}
             for param in self.ptp_params:
                 if param == 'alt' or param == 'z':
-                    location['alt'] = self.get_random_by_type(param)
-                    location['z']   = location['alt']
+                    continue
                 location[param] = self.get_random_by_type(param)
+            location['alt'] = self.get_random_by_type('alt')
+            location['z'] = location['alt']
             locations.append(location)
         return locations
 
@@ -43,11 +44,15 @@ class RandomMissionGenerator(object):
     def get_mission_action(self):
         action_data = {}
         psudo_random_number = random.randint(0,len(self.types)-1)
-        print psudo_random_number
         if psudo_random_number == 0:
             action_data['Type'] = self.types[0]
             for param in self.ptp_params:
+                if param == 'alt' or param == 'z':
+                    continue
                 action_data[param] = self.get_random_by_type(param)
+            random_alt = self.get_random_by_type('alt')
+            action_data['alt'] = random_alt
+            action_data['z'] = random_alt
             return action_data
         elif psudo_random_number == 1:
             action_data['Type'] = self.types[1]
@@ -56,7 +61,11 @@ class RandomMissionGenerator(object):
         elif psudo_random_number == 2:
             action_data['Type'] = self.types[2]
             for param in self.extraction_params:
+                if param == 'alt' or param == 'z':
+                    continue
                 action_data[param] = self.get_random_by_type(param)
+            action_data['alt'] = self.get_random_by_type('alt')
+            action_data['z'] = action_data['alt']
             return action_data
 
 
@@ -133,11 +142,8 @@ class RandomMissionGenerator(object):
         json['MDescription']['Mission']['Intents'] = intents
         json['MDescription']['Mission']['FailureFlags'] = failure_flags
         print action
-        print
         print quality_attributes
-        print
         print intents
-        print
         print failure_flags
 
         return json
