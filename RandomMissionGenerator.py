@@ -1,38 +1,49 @@
+import random
+import math
+QUALITY_ATTRUBUTE_INFORM_RATE = 5
+FAILURE_FLAG_SHUTDOWN         = True
+
 class RandomMissionGenerator(object):
     """Generates random  missions"""
-    def __init__(self, name):
+    def __init__(self, name, current_model_position):
         self.name = name
         self.types = ['PTP','MPTP','Extraction']
         self.ptp_params = ['alt','x','y','x_d','y_d','z_d']
-        self.extraction_params = list(self.ptp_params).append('wait')
+        self.extraction_params = list(self.ptp_params)
+        self.extraction_params.append('wait')
         # Failure Flags and Quality Attributes use the same list
         self.quaility_attributes = ['ReportRate','Time','Battery','MaxHeight',\
         'MinHeight','DistanceTraveled']
-        self.intents = list(self.quality_attributes).remove('ReportRate')
+        self.intents = list(self.quaility_attributes).remove('ReportRate')
+        self.current_model_position = current_model_position
 
 
     def get_random_by_type(self, param):
-        if param == 'alt':
-            return random.uniform(1, 50)
+        if param == 'alt' or param == 'z':
+            return random.randint(1, 50)
         elif param == 'wait':
-            return random.uniform(0,50)
-        elif param in list(self.ptp_params).remove('alt'):
-            return random.uniform(0, 50)
+            return random.randint(0,50)
+        elif param in self.ptp_params:
+            return random.randint(0, 50)
 
 
     def get_multiple_locations(self, number_of_locations):
         locations = []
         for x in range(number_of_locations):
             location = {}
-            for param in list(self.ptp_params).remove('alt'):
+            for param in self.ptp_params:
+                if param == 'alt' or param == 'z':
+                    location['alt'] = self.get_random_by_type(param)
+                    location['z']   = location['alt']
                 location[param] = self.get_random_by_type(param)
-            locations.append(locations)
+            locations.append(location)
         return locations
 
 
     def get_mission_action(self):
         action_data = {}
-        psudo_random_number = random.randint(0,len(self.types))
+        psudo_random_number = random.randint(0,len(self.types)-1)
+        print psudo_random_number
         if psudo_random_number == 0:
             action_data['Type'] = self.types[0]
             for param in self.ptp_params:
@@ -40,7 +51,7 @@ class RandomMissionGenerator(object):
             return action_data
         elif psudo_random_number == 1:
             action_data['Type'] = self.types[1]
-            action_data['Locations'] = self.get_multiple_locations(random.randint(10))
+            action_data['Locations'] = self.get_multiple_locations(random.randint(0,10))
             return action_data
         elif psudo_random_number == 2:
             action_data['Type'] = self.types[2]
@@ -58,19 +69,75 @@ class RandomMissionGenerator(object):
             quality_attributes_data[param] = True
         return quality_attributes_data
 
+    def calculate_time_for_intents(self, mission_action, multiple_points = False):
+        total_time = 0
+        if multiple_points:
+            total_time += float(mission_action['Locations'][0]['alt']) * 1.8
+            previous_location = self.current_model_position
+            for locations in mission_action['Locations']:
+                total_time += self.euclidean((previous_location.x, previous_location.y),(\
+                    locations['x'], locations['y'])) * 1.8
+            total_time += float(mission_action['Locations'][0]['alt']) * 2.6
+        else:
+            total_time += mission_action['alt'] * 1.8
+            total_time += self.euclidean((self.current_model_position.x, \
+                self.current_model_position.y), (mission_action['x'], \
+                mission_action['y'])) * 1.8
+            total_time += mission_action['alt'] * 2.6
+
+
+        return total_time
+
 
     def get_intents(self, mission_action):
-        ros = ROSHandler()
-        current_x_y = ros.monitor(None,None,None,True)
+        intents_data = {}
+        print mission_action
         if mission_action['Type'] == 'PTP':
-            print 'ha'
+            intents_data['Time'] = self.calculate_time_for_intents(mission_action)
+        elif mission_action['Type'] == 'MPTP':
+            intents_data['Time'] = self.calculate_time_for_intents(mission_action, True)
+        elif mission_action['Type'] == 'Extraction':
+            intents_data['Time'] = self.calculate_time_for_intents(mission_action) * 2
 
+        intents_data['MaxHeight'] = mission_action['alt']+ 0.3
+        intents_data['MinHeight'] = mission_action['alt']- 0.3
+        intents_data['Battery']   = intents_data['Time'] * 0.0025
+        return intents_data
+
+    def euclidean(self, a, b):
+        assert isinstance(a, tuple) and isinstance(b, tuple)
+        assert a != tuple()
+        assert len(a) == len(b)
+        d = sum((x - y) ** 2 for (x, y) in zip(a, b))
+        return math.sqrt(d)
+
+    def get_failure_flags(self, intents):
+        failure_flags_data = {}
+        failure_flags_data['Time'] = intents['Time'] + 10
+        failure_flags_data['Battery'] = intents['Battery'] + (0.0025 * 10) #Tecnically 10 more seconds of battery
+        failure_flags_data['MaxHeight'] = intents['MaxHeight'] + 0.3
+        failure_flags_data['MinHeight'] = intents['MinHeight'] - 0.3
+        failure_flags_data['SystemShutdown'] = FAILURE_FLAG_SHUTDOWN
+        return failure_flags_data
 
     def generate_random_mission(self):
-        json = {'MDescription':{'RobotType':'Copter','LaunchFile':None},\
-        'Map':Non}
-        mission_action = self.get_mission_action()
+        json = {'MDescription':{'RobotType': 'Copter','LaunchFile': 'None', 'Map':\
+        'None', 'Mission': {'Name': self.name}}}
+
+        action  = self.get_mission_action()
         quality_attributes = self.get_quality_attributes()
-        intents = self.get_intents(mission_action)
-        json['Action':mission_action]
-        json['Quality_Attributes'] = quality_attributes
+        intents = self.get_intents(action)
+        failure_flags = self.get_failure_flags(intents)
+        json['MDescription']['Mission']['Action'] = action
+        json['MDescription']['Mission']['QualityAttributes'] = quality_attributes
+        json['MDescription']['Mission']['Intents'] = intents
+        json['MDescription']['Mission']['FailureFlags'] = failure_flags
+        print action
+        print
+        print quality_attributes
+        print
+        print intents
+        print
+        print failure_flags
+
+        return json
