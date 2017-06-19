@@ -25,7 +25,7 @@ HOME_COORDINATES              = (-35.3632607, 149.1652351)
 ERROR_LIMIT_DISTANCE          = .3 # 30cm TODO: pick a better name
 TIME_INFORM_RATE              = 10 # seconds. How often log time
 STABLE_BUFFER_TIME            = 5.0  # Seconds time to wait after each command
-ROBOT_MODEL_NAME              = 'iris_demo'
+ROBOT_MODEL_NAME              = 'iris_demo' # name of the model being used in gazebo
 
 def error(error):
     print '[ERROR]: {}'.format(error)
