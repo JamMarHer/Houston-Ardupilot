@@ -446,15 +446,9 @@ class Mission(object):
     # updates the systems location and data required for the mission.
     def execute_point_to_point(self, action_data, ros):
         command_success = {}
-        time_current = time.time()
         command_success['takeoff'] = ros.ros_command_takeoff(action_data['alt'])
-        print 'time to take off: {}'.format(time.time() - time_current)
-        time_current = time.time()
         command_success['go_to'] = (action_data, ros.ros_command_go_to(action_data, False))
-        print 'time to go to: {}'.format(time.time() - time_current)
-        time_current = time.time()
         command_success['land'] = ros.ros_command_land(action_data['alt'])
-        print 'time to land: {}'.format(time.time() - time_current)
         return command_success
 
 
