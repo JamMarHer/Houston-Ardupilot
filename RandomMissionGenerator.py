@@ -8,7 +8,7 @@ class RandomMissionGenerator(object):
     def __init__(self, name, current_model_position):
         self.name = name
         self.types = ['PTP','MPTP','Extraction']
-        self.ptp_params = ['alt','x','y','x_d','y_d','z_d']
+        self.ptp_params = ['alt','x','y', 'z','x_d','y_d','z_d', ]
         self.extraction_params = list(self.ptp_params)
         self.extraction_params.append('wait')
         # Failure Flags and Quality Attributes use the same list
