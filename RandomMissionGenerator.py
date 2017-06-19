@@ -141,9 +141,6 @@ class RandomMissionGenerator(object):
         json['MDescription']['Mission']['QualityAttributes'] = quality_attributes
         json['MDescription']['Mission']['Intents'] = intents
         json['MDescription']['Mission']['FailureFlags'] = failure_flags
-        print action
-        print quality_attributes
-        print intents
-        print failure_flags
+
 
         return json
