@@ -57,7 +57,7 @@ class RandomMissionGenerator(object):
             return action_data
         elif psudo_random_number == 1:
             action_data['Type'] = self.types[1]
-            action_data['Locations'] = self.get_multiple_locations(random.randint(0,10))
+            action_data['Locations'] = self.get_multiple_locations(random.randint(1,10))
             return action_data
         elif psudo_random_number == 2:
             action_data['Type'] = self.types[2]

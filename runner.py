@@ -415,7 +415,7 @@ class ROSHandler(object):
             if fail:
                 report_data['FailureFlags'] = reason
                 self.mission_on = False
-                error(reason)
+                error(reason, self.quiet, self.log_in_file)
             else:
                 qua_time, qua_report = self.check_quality_attributes(\
                     quality_attributes,report_data['QualityAttributes'], qua_time)
@@ -458,8 +458,15 @@ class Report(object):
         data_to_dump['Intents'] = self.report_data['Intents']
         data_to_dump['Failure Flags'] = self.report_data['FailureFlags']
 
-        with open('report.json', 'w') as file:
-            json.dump(data_to_dump, file)
+        if os.path.exists('houston.log'):
+            a_w = 'a' # append if already exists
+        else:
+            a_w = 'w' # make a new file if not
+        with open('report.json', a_w) as file:
+            json.dump(data_to_dump, file, sort_keys=True, indent=4, separators=\
+            (',', ': '))
+
+
 
 
 class Mission(object):
@@ -594,10 +601,10 @@ class Mission(object):
         except KeyboardInterrupt:
             ros.ros_set_mission_over()
             log('User KeyboardInterrupt... exiting.')
+            sys.exit(0)
         except Exception:
             raise
         print success_report
-        sys.exit(0)
 
 
     def __init__(self, mission_info):
