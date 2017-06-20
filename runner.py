@@ -391,8 +391,7 @@ class ROSHandler(object):
         model_pos_sub   = rospy.Subscriber("/gazebo/model_states", ModelStates, \
             self.ros_monitor_callback_model_position_gazebo, queue_size=10)
         global_pos_sub  = rospy.Subscriber('/mavros/global_position/global', \
-            NavSatFix \
-         , self.ros_monitor_callback_global_position)
+            NavSatFix, self.ros_monitor_callback_global_position)
         battery_sub     = rospy.Subscriber('/mavros/battery', BatteryStatus, \
           self.ros_monitor_callback_battery)
         local_odom_sub  = rospy.Subscriber('/mavros/local_position/odom', \
