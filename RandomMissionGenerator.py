@@ -108,8 +108,12 @@ class RandomMissionGenerator(object):
         elif mission_action['Type'] == 'Extraction':
             intents_data['Time'] = self.calculate_time_for_intents(mission_action) * 2
 
-        intents_data['MaxHeight'] = mission_action['alt']+ 0.3
-        intents_data['MinHeight'] = mission_action['alt']- 0.3
+        if 'Locations' in  mission_action:
+            intents_data['MaxHeight'] = mission_action['Locations'][0]['alt']+ 0.3
+            intents_data['MinHeight'] = mission_action['Locations'][0]['alt']- 0.3
+        else:
+            intents_data['MaxHeight'] = mission_action['alt']+ 0.3
+            intents_data['MinHeight'] = mission_action['alt']- 0.3
         intents_data['Battery']   = intents_data['Time'] * 0.0025
         return intents_data
 

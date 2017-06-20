@@ -86,7 +86,7 @@ class ROSHandler(object):
     def check_land_completion(self, alt, wait = STABLE_BUFFER_TIME):
         local_action_time = time.time()
         self.lock_min_height = True
-        while self.current_odom_position[2] >= ERROR_LIMIT_DISTANCE and \
+        while self.current_model_position[2] >= ERROR_LIMIT_DISTANCE and \
             self.mission_on:
             local_action_time = self.timer_log(local_action_time, 5, 'Waiting to reach land. Goal: ~0 - Current: {}'.format(self.current_model_position[2]))
         if self.current_model_position[2] >= ERROR_LIMIT_DISTANCE:
@@ -553,9 +553,9 @@ class Mission(object):
                 success_report.append(self.execute_extraction(action_data, ros))
             else:
                 print 'Mission type found not supported'
-            ros.ros_set_mission_over
+            ros.ros_set_mission_over()
         except KeyboardInterrupt:
-            ros.ros_set_mission_over
+            ros.ros_set_mission_over()
             log('User KeyboardInterrupt... exiting.')
         except Exception:
             raise
