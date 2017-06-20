@@ -458,7 +458,7 @@ class Report(object):
         data_to_dump['Intents'] = self.report_data['Intents']
         data_to_dump['Failure Flags'] = self.report_data['FailureFlags']
 
-        if os.path.exists('houston.log'):
+        if os.path.exists('report.json'):
             a_w = 'a' # append if already exists
         else:
             a_w = 'w' # make a new file if not
