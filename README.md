@@ -94,6 +94,6 @@ Open five terminals and do the following:
   * **Houston** (cool part):
   As an example we are just going to run a PTP mission.
   ```
-  python runner.py mission_examples/point_to_point.json
+  python runner.py random-mission PTP 1
   ```
   Hopefully you can see the magic happen.
