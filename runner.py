@@ -127,7 +127,6 @@ class ROSHandler(object):
             local_action_time = self.timer_log(local_action_time, 5, \
                 'Waiting to reach alt. Goal: {} - Current: {}'.format(alt, \
                 self.current_model_position[2]))
-        print ' CURRENT FUCKING STATE <3: {} - {}'.format(self.current_odom_position[2], alt)
         if self.min_max_height[0] == -1:
             self.min_max_height[0] = self.current_odom_position[2]
             self.lock_min_height = False
