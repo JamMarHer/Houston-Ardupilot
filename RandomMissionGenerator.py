@@ -122,8 +122,8 @@ class RandomMissionGenerator(object):
         failure_flags_data = {}
         failure_flags_data['Time'] = intents['Time'] + 10
         failure_flags_data['Battery'] = intents['Battery'] + (0.0025 * 10) #Tecnically 10 more seconds of battery
-        failure_flags_data['MaxHeight'] = intents['MaxHeight'] + 0.3
-        failure_flags_data['MinHeight'] = intents['MinHeight'] - 0.3
+        failure_flags_data['MaxHeight'] = intents['MaxHeight'] + 1.5
+        failure_flags_data['MinHeight'] = intents['MinHeight'] - 1.5
         failure_flags_data['SystemShutdown'] = FAILURE_FLAG_SHUTDOWN
         return failure_flags_data
 

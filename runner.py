@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import thread
+import signal
 import math
 import random
 import RandomMissionGenerator as RandomMissionGenerator
@@ -93,7 +94,6 @@ class ROSHandler(object):
             local_action_time = self.timer_log(local_action_time, 2, 'Remaining: {}'.format(remaining_distance)) # TODO
             remaining_distance = euclidean((pose.pose.position.x,pose.pose.position.y), \
                 (self.current_model_position[0], self.current_model_position[1]))
-
         # This is done to double check, that the current position is the actual
         # goal position.
         if remaining_distance > ERROR_LIMIT_DISTANCE:
@@ -107,7 +107,8 @@ class ROSHandler(object):
         self.lock_min_height = True
         while self.current_model_position[2] >= ERROR_LIMIT_DISTANCE and \
             self.mission_on:
-            local_action_time = self.timer_log(local_action_time, 5, 'Waiting to reach land. Goal: ~0 - Current: {}'.format(self.current_model_position[2]))
+            local_action_time = self.timer_log(local_action_time, 5, \
+            'Waiting to reach land. Goal: ~0 - Current: {}'.format(self.current_model_position[2]))
         if self.current_model_position[2] >= ERROR_LIMIT_DISTANCE:
             return False, 'System did not land on time'
         time.sleep(wait)
@@ -122,17 +123,20 @@ class ROSHandler(object):
         # the ground truth and the current_odom_position increases as the alt
         # does.
         while alt >= (self.current_odom_position[2] + ERROR_LIMIT_DISTANCE)\
-         and self.mission_on:
+            and self.mission_on:
             local_action_time = self.timer_log(local_action_time, 5, \
                 'Waiting to reach alt. Goal: {} - Current: {}'.format(alt, \
-            self.current_model_position[2]))
-        self.lock_min_height = False
+                self.current_model_position[2]))
+        print ' CURRENT FUCKING STATE <3: {} - {}'.format(self.current_odom_position[2], alt)
         if self.min_max_height[0] == -1:
-            self.min_max_height[0] = self.current_model_position[2]
+            self.min_max_height[0] = self.current_odom_position[2]
+            self.lock_min_height = False
+
 
         if alt < (self.current_model_position[2] - ERROR_LIMIT_DISTANCE):
             return (False, alt), 'System did not reach height on time'
         time.sleep(STABLE_BUFFER_TIME)
+
         return (True, alt), 'System reached height'
 
 
@@ -281,14 +285,8 @@ class ROSHandler(object):
 
     # Callback for model position sub. It also updates the min and the max height
     def ros_monitor_callback_model_position_gazebo(self, data):
-
         pose_reality = data.pose[data.name.index(ROBOT_MODEL_NAME)]
         real_position = pose_reality.position
-        if real_position.z > self.min_max_height[1]:
-            self.min_max_height[1] = real_position.z
-        if real_position.z < self.min_max_height[0] and not \
-            self.lock_min_height:
-            self.min_max_height[0] = real_position.z
 
         if not self.initial_set[0]:
             self.initial_model_position[0]        = -real_position.y
@@ -320,6 +318,12 @@ class ROSHandler(object):
 
     # Callback for local_position sub
     def ros_monitor_callback_odom_local_position(self, data):
+        if data.pose.pose.position.z > self.min_max_height[1]:
+            self.min_max_height[1] = data.pose.pose.position.z
+        if data.pose.pose.position.z < self.min_max_height[0] and not \
+            self.lock_min_height:
+            self.min_max_height[0] = data.pose.pose.position.z
+
         if not self.initial_set[3]:
             self.initial_odom_position[0]         = data.pose.pose.position.x
             self.initial_odom_position[1]         = data.pose.pose.position.y
@@ -342,15 +346,19 @@ class ROSHandler(object):
 
     # Checks failure flags
     def check_failure_flags(self, failure_flags):
+        current_time = time.time() - self.starting_time
         if time.time() - self.starting_time >= float(failure_flags['Time']):
-            return True, 'Time exceeded: Expected: {} Current: {}'.format(failure_flags['Time'], (time.time() - self.starting_time))
+            return True, 'Time exceeded: Expected: {} Current: {}'.format(failure_flags['Time'], current_time)
         elif self.battery[0] - self.battery[1] >= float(failure_flags['Battery']):
-            return True, 'Battery exceeded'
-        elif self.current_model_position[2] >= failure_flags['MaxHeight']:
-            return True, 'Max Height exceeded'
-        else:
-            return False, None
-        # TODO Min Height
+            return True, 'Battery exceeded: Expected: {} - Current: {} - Time: {}'.\
+            format(failure_flags['Battery'], (self.battery[0] - self.battery[1]), current_time)
+        elif self.min_max_height[1]  >= float(failure_flags['MaxHeight']):
+            return True, 'Max height exceeded: Expected: {} - Current: {} - Time: {}'.\
+            format(failure_flags['MaxHeight'], self.min_max_height[1], current_time)
+        elif self.min_max_height[0] != -1 and self.min_max_height[0] <= float(failure_flags['MinHeight']):
+            return True, 'Min height exceeded: Expected: {} - Current: {} - Time: {}'.\
+            format(failure_flags['MinHeight'], self.min_max_height[0], current_time)
+        return False, None
 
 
     # Updates quality attributes.
@@ -382,12 +390,9 @@ class ROSHandler(object):
         return current_data
         # TODO Better name for current_data
 
-
     # Starts four subscribers to populate the system's location, system battery and
     # the model position which is very similar to the position given by the local position.
-    # It also updates intents, quality attributes and checks failure_flags.
-    # Sends all the data to the report generator.
-    def ros_monitor(self, quality_attributes, intents, failure_flags, random = False):
+    def start_subscribers(self):
         model_pos_sub   = rospy.Subscriber("/gazebo/model_states", ModelStates, \
             self.ros_monitor_callback_model_position_gazebo, queue_size=10)
         global_pos_sub  = rospy.Subscriber('/mavros/global_position/global', \
@@ -397,6 +402,12 @@ class ROSHandler(object):
         local_odom_sub  = rospy.Subscriber('/mavros/local_position/odom', \
             Odometry, self.ros_monitor_callback_odom_local_position)
         time.sleep(2)
+
+
+    # Updates intents, quality attributes and checks failure_flags.
+    # Sends all the data to the report generator.
+    def ros_monitor(self, quality_attributes, intents, failure_flags, random = False):
+        self.start_subscribers()
         if random:
             return (self.initial_odom_position[0],self.initial_odom_position[1])
 
@@ -600,7 +611,7 @@ class Mission(object):
             ros.ros_set_mission_over()
         except KeyboardInterrupt:
             ros.ros_set_mission_over()
-            log('User KeyboardInterrupt... exiting.')
+            log('User KeyboardInterrupt... exiting.', False, False)
             sys.exit(0)
         except Exception:
             raise
@@ -684,7 +695,12 @@ def start_json_mission(json_file, quiet, log_in_file):
     start_test(json_file, quiet, log_in_file)
 
 
+def exit_handler(signal, frame):
+    log('User interrupted test, exiting...', False, False)
+    sys.exit(0)
+
 def main():
+    signal.signal(signal.SIGINT, exit_handler)
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
     parser.add_argument('--version', action='version', version='0.0.1')

@@ -29,9 +29,9 @@
 
 			"Intents":
 			{
-				"Time": "10",  
-				"Battery": ".6",  
-				"MaxHeight": "20",  
+				"Time": "10",
+				"Battery": ".6",
+				"MaxHeight": "20",
 				"MinHeight": "10"
 			},
 
@@ -40,12 +40,11 @@
 				"Time":	"40.0",
 				"Battery": "90",
 				"SystemShutdown":"True",
-				"MaxHeight":      "30",
-				"MinHeight":      "20"
+				"MaxHeight":      "6.5",
+				"MinHeight":      "3.5"
 			}
-						
+
 		}
-			
+
 	}
 }
-
