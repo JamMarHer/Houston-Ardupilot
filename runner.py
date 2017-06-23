@@ -326,8 +326,7 @@ class ROSHandler(object):
         self.current_odom_position[2]             = data.pose.pose.position.z
 
     # Timer which logs information with a given message.
-    def timer_log(self, temp_time, time_rate = TIME_INFORM_RATE, message        # TODO Better name for current_data
- = ''):
+    def timer_log(self, temp_time, time_rate = TIME_INFORM_RATE, message= ''):
         current_time = time.time()
         if  (current_time - temp_time) > time_rate:
             log('Current time: {} : {}'.format((time.time() - self.starting_time),\
@@ -377,7 +376,7 @@ class ROSHandler(object):
             'Current-MinHeight': self.min_max_height[0], 'Intended-MinHeight': intents['MinHeight']}
         return current_report_data
 
-    # Checks the intents for a specific portion of the mission. 
+    # Checks the intents for a specific portion of the mission.
     def check_specific_intents(self, intents, current_report_data):
         specific_intent_current_time = time.time() - self.starting_values_current_action['Time']
         specific_intent_current_battery = self.starting_values_current_action['Battery'] - self.battery[1]
