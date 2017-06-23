@@ -71,6 +71,9 @@ class ROSHandler(object):
         # option updated in line 413
         self.quiet                      = False
         self.log_in_file                = True
+        # added to hable specific intents (meaning intents to each location or action)
+        self.starting_values_current_action = {}
+        self.current_action                 = -1
 
     # Checks that MAVROS node is running
     def check_mavros(self):
@@ -114,7 +117,6 @@ class ROSHandler(object):
         time.sleep(wait)
         return True, 'System has landed'
 
-
     # Makes sure that the system reaches a given altitude (takeoff).
     def check_takeoff_completion(self, alt):
         local_action_time = time.time()
@@ -137,7 +139,6 @@ class ROSHandler(object):
         time.sleep(STABLE_BUFFER_TIME)
 
         return (True, alt), 'System reached height'
-
 
     # Sets the system to GUIDED, arms and takesoff to a given altitude.
     # TODO: add mode to mission parameters?
@@ -166,7 +167,6 @@ class ROSHandler(object):
         log(message, self.quiet, self.log_in_file)
         return return_data
 
-
     # Makes a service call to coomand the system to land
     def ros_command_land(self, alt, wait = None):
         land = rospy.ServiceProxy('/mavros/cmd/land', CommandTOL)
@@ -177,8 +177,6 @@ class ROSHandler(object):
         return_data, message = self.check_land_completion(alt)
         log(message, self.quiet, self.log_in_file)
         return return_data
-
-
 
     # Gets the current x and y values using latitude and longitud instead of
     # getting the values form local posiiton (odom)
@@ -193,7 +191,6 @@ class ROSHandler(object):
             x = -x
 
         return x, y
-
 
     # Calculates the expected latitude and longitude, x and y are given in meters.
     def get_expected_lat_long(self, x_y, target, x_distance, y_distance):
@@ -220,7 +217,6 @@ class ROSHandler(object):
                     6378000.0) * (180.0/math.pi) / math.cos(math.radians(\
                     self.initial_global_coordinates[0])))
         return expected_lat, expected_long
-
 
     # Resets the initial global position
     def reset_initial_global_position(self):
@@ -280,8 +276,6 @@ class ROSHandler(object):
         log(message, self.quiet, self.log_in_file)
         return return_data
 
-
-
     # Callback for model position sub. It also updates the min and the max height
     def ros_monitor_callback_model_position_gazebo(self, data):
         pose_reality = data.pose[data.name.index(ROBOT_MODEL_NAME)]
@@ -295,7 +289,6 @@ class ROSHandler(object):
         self.current_model_position[0]            = -real_position.y
         self.current_model_position[1]            = real_position.x
         self.current_model_position[2]            = real_position.z
-
 
     # Callback for global position sub
     def ros_monitor_callback_global_position(self, data):
@@ -332,9 +325,9 @@ class ROSHandler(object):
         self.current_odom_position[1]             = data.pose.pose.position.y
         self.current_odom_position[2]             = data.pose.pose.position.z
 
-
     # Timer which logs information with a given message.
-    def timer_log(self, temp_time, time_rate = TIME_INFORM_RATE, message = ''):
+    def timer_log(self, temp_time, time_rate = TIME_INFORM_RATE, message        # TODO Better name for current_data
+ = ''):
         current_time = time.time()
         if  (current_time - temp_time) > time_rate:
             log('Current time: {} : {}'.format((time.time() - self.starting_time),\
@@ -359,35 +352,46 @@ class ROSHandler(object):
             format(failure_flags['MinHeight'], self.min_max_height[0], current_time)
         return False, None
 
-
     # Updates quality attributes.
-    def check_quality_attributes(self, quality_attributes, current_data, _time):
-        if time.time() - _time >= float(quality_attributes['ReportRate']):
-            current_data.append({'Time': (time.time() - self.starting_time), \
-                'Battery': self.battery[0]-self.battery[1], 'MinHeight': \
-                self.min_max_height[0], 'MaxHeight': self.min_max_height[1]})
-            return time.time(), current_data
-        else:
-            return _time, current_data
+    def get_quality_attributes(self):
+        return {'Time': (time.time() - self.starting_time), \
+                'Battery': self.battery[0] - self.battery[1], \
+                'MinHeight': self.min_max_height[0], \
+                'MaxHeight': self.min_max_height[1]}
 
 
     # Checks if the current state of the system violates an intent.
-    def check_intents(self, intents, current_data):
+    def check_general_intents(self, intents, current_report_data):
         current_time =  time.time() - self.starting_time
         current_battery_used = self.battery[0] - self.battery[1]
         if current_time >= float(intents['Time']):
-            current_data['Time'] = {'Time':current_time,'Success':False}
+            current_report_data['Time'] = {'Time':current_time,'Success':False}
         if current_battery_used >= float(intents['Battery']):
-            current_data['Battery'] = {'Time':current_time, 'Success':False, \
-            'Battery': current_battery_used }
-        if self.min_max_height[0] >= intents['MaxHeight']:
-            current_data['MaxHeight'] = {'Time':current_time, 'Success':False, \
-            'MaxHeight': self.current_model_position[2]}
-        if self.min_max_height[1]<= intents['MinHeight']:
-            current_data['MinHeight'] = {'Time':current_time, 'Success':False, \
-            'MinHeight': self.current_model_position[2]}
-        return current_data
-        # TODO Better name for current_data
+            current_report_data['Battery'] = {'Time':current_time, 'Success':False, \
+            'Current-Battery': current_battery_used, 'Intended-Battery': intents['Battery'] }
+        if self.min_max_height[1] >= float(intents['MaxHeight']):
+            current_report_data['MaxHeight'] = {'Time':current_time, 'Success':False, \
+            'Current-MaxHeight': self.min_max_height[1], 'Intended-MaxHeight': intents['MaxHeight']}
+        if not self.lock_min_height and self.min_max_height[0] <= float(intents['MinHeight']):
+            current_report_data['MinHeight'] = {'Time':current_time, 'Success':False, \
+            'Current-MinHeight': self.min_max_height[0], 'Intended-MinHeight': intents['MinHeight']}
+        return current_report_data
+
+    def check_specific_intents(self, intents, current_report_data):
+        specific_intent_current_time = time.time() - self.starting_values_current_action['Time']
+        specific_intent_current_battery = self.starting_values_current_action['Battery'] - self.battery[1]
+        if specific_intent_current_time >= float(intents['Time']):
+            current_report_data['Time'] = {'Curremt-Time':specific_intent_current_time, 'Intended-Time': intents['Time'],'Success':False}
+        if specific_intent_current_battery >= float(intents['Battery']):
+            current_report_data['Battery'] = {'Time':specific_intent_current_time, 'Success':False, \
+            'Current-Battery': specific_intent_current_battery, 'Intended-Battery': intents['Battery'] }
+        if self.current_odom_position[2] >= float(intents['MaxHeight']):
+            current_report_data['MaxHeight'] = {'Time':specific_intent_current_time, 'Success':False, \
+            'Current-MaxHeight': self.min_max_height[1], 'Intended-MaxHeight': intents['MaxHeight']}
+        if not self.lock_min_height and self.current_odom_position[2] <= float(intents['MinHeight']):
+            current_report_data['MinHeight'] = {'Time':currentspecific_intent_current_time_time, 'Success':False, \
+            'Current-MinHeight': self.current_odom_position[2], 'Intended-MinHeight': intents['MinHeight']}
+        return current_report_data
 
     # Starts four subscribers to populate the system's location, system battery and
     # the model position which is very similar to the position given by the local position.
@@ -402,44 +406,36 @@ class ROSHandler(object):
             Odometry, self.ros_monitor_callback_odom_local_position)
         time.sleep(2)
 
-
     # Updates intents, quality attributes and checks failure_flags.
     # Sends all the data to the report generator.
-    def ros_monitor(self, quality_attributes, intents, failure_flags, random = False):
+    def ros_monitor(self, quality_attributes, intents, failure_flags):
         self.start_subscribers()
-        if random:
-            return (self.initial_odom_position[0],self.initial_odom_position[1])
+        report = Report(self, self.mission_info, len(intents['Specific']))
 
-        intents_for_report ={
-                'Time': True,
-                'Battery': True,
-                'MaxHeight':True,
-                'MinHeight': True}
-        report_data = {'QualityAttributes':[],'Intents':intents_for_report,\
-        'FailureFlags':'None'}
-        temp_time   = time.time() #time used for failure flags and time inform (seconds)
-        qua_time    = time.time() #time used for the rate of attribute reports (seconds)
         while self.mission_on:
-            temp_time = self.timer_log(temp_time)
-            fail, reason = self.check_failure_flags(failure_flags)
-            if fail:
-                report_data['FailureFlags'] = reason
+            fail_g, message  = self.check_failure_flags(failure_flags)
+            if fail_g:
                 self.mission_on = False
-                error(reason, self.quiet, self.log_in_file)
-            else:
-                qua_time, qua_report = self.check_quality_attributes(\
-                    quality_attributes,report_data['QualityAttributes'], qua_time)
-                report_data['QualityAttributes'] = qua_report
-                report_data['Intents'] = self.check_intents(intents, \
-                    report_data['Intents'])
-
-        report_generator = Report(self, report_data, self.mission_info)
-        report_generator.generate()
+                report.update_failure_flag(message)
+            report.update_quality_attributes_report(self.get_quality_attributes())
+            report.update_general_intents_report(self.check_general_intents(intents['General'], \
+                report.get_general_intent_report()))
+            if self.current_action != -1:
+                report.update_specific_intents_report(self.check_specific_intents\
+                (intents['Specific'][self.current_action], report.get_specific_intent_report\
+                (self.current_action)), self.current_action)
+        report.generate()
 
     # Sets the mission to over, which would stop all while loops related to the
     # check of a action execution.
     def ros_set_mission_over(self):
         self.mission_on = False
+
+    def ros_update_current_action(self, action):
+        self.current_action = action
+        self.starting_values_current_action = {}
+        self.starting_values_current_action['Time'] = time.time()
+        self.starting_values_current_action['Battery'] = self.battery[1]
 
     # Populates the mission info, quiet, and log in file.
     def ros_set_mission_info(self, mission_info, quiet, log_in_file):
@@ -449,12 +445,40 @@ class ROSHandler(object):
 
 class Report(object):
 
-
-    def __init__(self, ros_handler ,report_data, mission_info):
-        self.report_data      = report_data
+    def __init__(self, ros_handler, mission_info, number_of_locations):
         self.ros_handler = ros_handler
         self.mission_info     = mission_info
+        self.quality_attributes_report    = []
+        self.failure_flags_report         = 'Success'
+        self.general_intents_report       = {}
+        self.specific_intents_report      = [{}]
+        self.current_time                 = time.time()
+        for x in range(0, number_of_locations - 1):
+            self.specific_intents_report.append({})
 
+
+    def get_general_intent_report(self):
+        return self.general_intents_report
+
+    def get_specific_intent_report(self, current_action):
+        return self.specific_intents_report[current_action]
+
+    def update_quality_attributes_report(self, data):
+        if (time.time() - self.current_time) >= 2:
+            self.quality_attributes_report.append(data)
+            self.current_time = time.time()
+
+    def update_general_intents_report(self, intent_report):
+        if self.general_intents_report != intent_report:
+            self.general_intents_report = intent_report
+
+    def update_specific_intents_report(self, data, current_action):
+        if self.specific_intents_report[current_action] != data:
+            self.specific_intents_report[current_action] = dict(data)
+
+
+    def update_failure_flag(self, data):
+        self.failure_flags_report = data
 
     # Generates a report in JSON format
     def generate(self):
@@ -464,9 +488,10 @@ class Report(object):
         data_to_dump['Map'] = self.mission_info.map
         data_to_dump['LaunchFile'] = self.mission_info.launch_file
         data_to_dump['OverallTime'] = str(time.time() - self.ros_handler.starting_time)
-        data_to_dump['QualityAttributes'] = self.report_data['QualityAttributes']
-        data_to_dump['Intents'] = self.report_data['Intents']
-        data_to_dump['Failure Flags'] = self.report_data['FailureFlags']
+        data_to_dump['QualityAttributes'] = self.quality_attributes_report
+        data_to_dump['Genral-Intents'] = self.general_intents_report
+        data_to_dump['Specific-Intents'] = self.specific_intents_report
+        data_to_dump['Failure Flags'] = self.failure_flags_report
 
         if os.path.exists('report.json'):
             a_w = 'a' # append if already exists
@@ -477,16 +502,13 @@ class Report(object):
             (',', ': '))
 
 
-
-
 class Mission(object):
 
     # Checks that everything is the for the mission execution. It also starts,
     # ROSHandler and starts Houston's node
     def initial_check(self):
         if self.mission_info['Action']['Type'] not in self.missions_supported:
-            error('Mission: {}. Not supported.'.format(self.mission_info['Action']\
-                ['Type']))
+            error('Mission: {}. Not supported.'.format(self.mission_info['Action']['Type']), False, False)
             exit()
         ros = ROSHandler('mavros')
         main = rospy.init_node('HoustonMonitor')
@@ -495,15 +517,14 @@ class Mission(object):
             sys.exit()
         return ros, main
 
-
     # Starts action point to point.
-    def execute_point_to_point(self, action_data, ros):
+    def execute_point_to_point(self, action_data, ros, action = 0):
         command_success = {}
         command_success['takeoff'] = ros.ros_command_takeoff(action_data['alt'])
+        ros.ros_update_current_action(action)
         command_success['go_to'] = (action_data, ros.ros_command_go_to(action_data, False))
         command_success['land'] = ros.ros_command_land(action_data['alt'])
         return command_success
-
 
     # Executes multiple point to point action
     def execute_multiple_point_to_point(self, action_data, ros):
@@ -511,24 +532,23 @@ class Mission(object):
         command_success['takeoff']= ros.ros_command_takeoff(action_data[0]['alt'])
         location_count = 0
         for target in action_data:
+            ros.ros_update_current_action(location_count)
             command_success['go_to_{}'.format(location_count)] = \
                 ros.ros_command_go_to(target, True)
             location_count += 1
         command_success['land'] = ros.ros_command_land(action_data[0]['alt'])
         return command_success
 
-
     # Executes extraction action
     def execute_extraction(self, action_data, ros):
         initial_x_y = ros.current_model_position
-        to_command_success = self.execute_point_to_point(action_data,ros)
+        to_command_success = self.execute_point_to_point(action_data,ros, 0)
         time.sleep(action_data['wait'])
         action_data['x'] = initial_x_y[0]
         action_data['y'] = initial_x_y[1]
         ros.reset_intial_model_position()
-        from_command_success = self.execute_point_to_point(action_data, ros)
+        from_command_success = self.execute_point_to_point(action_data, ros, 1)
         return {'to':to_command_success, 'from': from_command_success}
-
 
     # Checks that all the required parameters for a correct mission run are present
     def check_parameters(self, parameters):
@@ -551,7 +571,6 @@ class Mission(object):
         else:
             error("FailureFlags not found")
         return True
-
 
     # Gets the parameters of an action.
     def get_params(self, mission_action, multiple_actions = False):
@@ -583,12 +602,11 @@ class Mission(object):
                 params_to_return[param] = float(mission_action[param])
             return params_to_return
 
-
     # Looks into the type of action and executes them.  Function starts a monitor
     # thread which constantly updates the systems location and data required for the mission.
     def execute(self, quiet, log_in_file):
         ros, main = self.initial_check()
-        self.check_parameters(self.mission_info)
+        #self.check_parameters(self.mission_info)
         mission_action     = self.mission_info['Action']
         quality_attributes = self.mission_info['QualityAttributes']
         intents            = self.mission_info['Intents']
@@ -615,7 +633,6 @@ class Mission(object):
         except Exception:
             raise
         print success_report
-
 
     def __init__(self, mission_info):
         self.robot_type         = mission_info['RobotType']
@@ -673,9 +690,11 @@ def get_gazebo_model_positon(from_outside_mission = False):
 # Starts the actual mission (Test).
 def start_test(mission_description, quiet, log_in_file):
     check_json(mission_description)
+    with open('random_json.json', 'w') as file:
+        json.dump(mission_description, file, sort_keys=True, indent=4, separators=\
+        (',', ': '))
     mission = Mission(mission_description['MDescription'])
     mission_results = mission.execute(quiet, log_in_file)
-
 
 # Handles random missions, loops through the quantity of missions wanted and executes,
 # them.
@@ -686,13 +705,11 @@ def start_random_mission(mission_type, quantity, quiet, log_in_file):
         start_test(randomGenerator.generate_random_mission(mission_type), quiet, \
         log_in_file)
 
-
 # Recieves a JSON file opens it and starts the test
 def start_json_mission(json_file, quiet, log_in_file):
     with open(json_file) as file:
         json_file = json.load(file)
     start_test(json_file, quiet, log_in_file)
-
 
 def exit_handler(signal, frame):
     log('User interrupted test, exiting...', False, False)

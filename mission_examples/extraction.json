@@ -4,35 +4,42 @@
         "Map": "None",
         "Mission": {
             "Action": {
-                "Type": "PTP",
+                "Type": "Extraction",
                 "alt": 20,
-                "x": 46,
-                "x_d": 27,
-                "y": 1,
-                "y_d": 5,
+                "wait": 34,
+                "x": 41,
+                "x_d": 31,
+                "y": 33,
+                "y_d": 18,
                 "z": 20,
-                "z_d": 6
+                "z_d": 33
             },
             "FailureFlags": {
-                "Battery": 0.43815628981463217,
+                "Battery": 1.0168324197962348,
                 "MaxHeight": 21.8,
                 "MinHeight": 18.2,
                 "SystemShutdown": true,
-                "Time": 175.26251592585285
+                "Time": 406.73296791849396
             },
             "Intents": {
                 "General": {
-                    "Battery": 0.41315628981463215,
+                    "Battery": 0.9918324197962349,
                     "MaxHeight": 20.3,
                     "MinHeight": 19.7,
-                    "Time": 165.26251592585285
+                    "Time": 396.73296791849396
                 },
                 "Specific": [
                     {
-                        "Battery": 0.19315628981463215,
+                        "Battery": 0.2759162098981175,
                         "MaxHeight": 20.3,
                         "MinHeight": 19.7,
-                        "Time": 77.26251592585285
+                        "Time": 110.36648395924699
+                    },
+                    {
+                        "Battery": 0.2759162098981175,
+                        "MaxHeight": 20.3,
+                        "MinHeight": 19.7,
+                        "Time": 110.36648395924699
                     }
                 ]
             },
