@@ -11,6 +11,7 @@ import signal
 import math
 import random
 import RandomMissionGenerator as RandomMissionGenerator
+import ReportAnalyzer         as ReportAnalyzer
 import rospy
 import xmlrpclib
 import argparse
@@ -716,6 +717,12 @@ def start_random_mission(mission_type, quantity, quiet, log_in_file):
         start_test(randomGenerator.generate_random_mission(mission_type), quiet, \
         log_in_file)
 
+def analyze_report(json_file):
+    report = open_json_file(json_file)
+    report_analyzer = ReportAnalyzer.ReportAnalyzer(report)
+    report_analyzer.analyze()
+
+
 # Recieves a JSON file opens it and starts the test
 def start_json_mission(json_file, quiet, log_in_file):
     start_test(open_json_file(json_file), quiet, log_in_file)
@@ -756,6 +763,12 @@ def main():
          args.log_in_file))
 
     # Gets mission instructions from a json file
+    report_analyzer_parser = subparsers.add_parser('analyze-report')
+    report_analyzer_parser.add_argument('json_file', help='Please provide a json\
+         file with mission report.')
+    report_analyzer_parser.set_defaults(func = lambda args: analyze_report(\
+        args.json_file))
+
     json_mission_parser = subparsers.add_parser('json-mission')
     json_mission_parser.add_argument('json_file', help='Please provide a json\
          file with mission instructions.')
