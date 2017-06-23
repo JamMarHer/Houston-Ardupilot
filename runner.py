@@ -514,7 +514,7 @@ class Mission(object):
         ros = ROSHandler('mavros')
         main = rospy.init_node('HoustonMonitor')
         if not ros.check_mavros():
-            error('Missing mavros')
+            error('Missing mavros', False, False)
             sys.exit()
         return ros, main
 
