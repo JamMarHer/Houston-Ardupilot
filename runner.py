@@ -708,9 +708,13 @@ def start_random_mission(mission_type, quantity, quiet, log_in_file):
 
 # Recieves a JSON file opens it and starts the test
 def start_json_mission(json_file, quiet, log_in_file):
+    start_test(open_json_file(json_file), quiet, log_in_file)
+
+def open_json_file(json_file):
     with open(json_file) as file:
         json_file = json.load(file)
-    start_test(json_file, quiet, log_in_file)
+    return json_file
+
 
 def exit_handler(signal, frame):
     log('User interrupted test, exiting...', False, False)
