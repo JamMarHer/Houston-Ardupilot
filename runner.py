@@ -542,11 +542,11 @@ class Mission(object):
 
     # Executes extraction action
     def execute_extraction(self, action_data, ros):
-        initial_x_y = ros.current_model_position
+        initial_x_y = get_gazebo_model_positon()
         to_command_success = self.execute_point_to_point(action_data,ros, 0)
         time.sleep(action_data['wait'])
-        action_data['x'] = initial_x_y[0]
-        action_data['y'] = initial_x_y[1]
+        action_data['x'] = -initial_x_y.y
+        action_data['y'] = initial_x_y.x
         ros.reset_intial_model_position()
         from_command_success = self.execute_point_to_point(action_data, ros, 1)
         return {'to':to_command_success, 'from': from_command_success}
