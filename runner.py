@@ -715,6 +715,10 @@ def open_json_file(json_file):
         json_file = json.load(file)
     return json_file
 
+def write_json_report(json_file, report_data):
+    with open(json_file, 'w') as file:
+        json.dump(report_data, file, sort_keys=True, indent=4, separators=\
+        (',', ': '))
 
 def exit_handler(signal, frame):
     log('User interrupted test, exiting...', False, False)
