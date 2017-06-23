@@ -23,7 +23,7 @@ class RandomMissionGenerator(object):
         if param == 'alt':
             return random.randint(1, 50)
         elif param == 'wait':
-            return random.randint(0,50)
+            return random.randint(1,50)
         elif param in self.ptp_params:
             return random.randint(0, 50)
 
