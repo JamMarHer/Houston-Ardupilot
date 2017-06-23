@@ -493,14 +493,24 @@ class Report(object):
         data_to_dump['Genral-Intents'] = self.general_intents_report
         data_to_dump['Specific-Intents'] = self.specific_intents_report
         data_to_dump['Failure Flags'] = self.failure_flags_report
+        report_present = 0
+        try:
+            report_present = os.stat("report.json").st_size
 
-        if os.path.exists('report.json'):
-            a_w = 'a' # append if already exists
+        except:
+            log('No previous report found. Creating a new one', self.ros_handler.quiet, \
+            self.ros_handler.log_in_file)
+        if report_present == 0:
+            report = {'Reports': {'0': data_to_dump}}
+            with open("report.json", 'w') as file:
+                json.dump(report, file, sort_keys=True, indent=4, separators=\
+                (',', ': '))
         else:
-            a_w = 'w' # make a new file if not
-        with open('report.json', a_w) as file:
-            json.dump(data_to_dump, file, sort_keys=True, indent=4, separators=\
-            (',', ': '))
+            report = open_json_file('report.json')
+            report['Reports'][str(len(report['Reports']) )] =  data_to_dump
+            with open("report.json", 'w') as file:
+                json.dump(report, file, sort_keys=True, indent=4, separators=\
+                (',', ': '))
 
 
 class Mission(object):
