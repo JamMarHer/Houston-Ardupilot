@@ -218,6 +218,19 @@ class ROSHandler(object):
                     self.initial_global_coordinates[0])))
         return expected_lat, expected_long
 
+    def get_the_expected_distance_from_lat_long(self, target):
+        current_x, current_y = self.get_current_x_y()
+        x_y = (current_x, current_y)
+        x_distance = target['x'] - current_x - ERROR_LIMIT_DISTANCE
+        y_distance = target['y'] - current_y -  ERROR_LIMIT_DISTANCE
+        expected_lat, expected_long = self.get_expected_lat_long(x_y, target, \
+            x_distance, y_distance)
+        expected_coor = (expected_lat, expected_long)
+        log('Using coordinates: initial: {} -  expected: {}'.format(\
+            self.initial_global_coordinates, expected_coor), self.quiet, self.log_in_file)
+        return  distance.great_circle(self.initial_global_coordinates, \
+        expected_coor).meters
+
     # Resets the initial global position
     def reset_initial_global_position(self):
         self.initial_set[1] = False
@@ -253,19 +266,7 @@ class ROSHandler(object):
             log('Using home coordinates: initial: {} -  expected: {}'.format(\
                 self.initial_global_coordinates, expected_coor), self.quiet, self.log_in_file)
         else:
-            current_x, current_y = self.get_current_x_y()
-            x_y = (current_x, current_y)
-            x_distance = target['x'] - current_x - \
-                ERROR_LIMIT_DISTANCE
-            y_distance = target['y'] -current_y - \
-                ERROR_LIMIT_DISTANCE
-            expected_lat, expected_long = self.get_expected_lat_long(x_y, target, \
-                x_distance, y_distance)
-            expected_coor = (expected_lat, expected_long)
-            log('Using coordinates: initial: {} -  expected: {}'.format(\
-                self.initial_global_coordinates, expected_coor), self.quiet, self.log_in_file)
-            expected_distance = distance.great_circle(self.initial_global_coordinates, \
-                expected_coor).meters
+            expected_distance = self.get_the_expected_distance_from_lat_long(target)
 
         self.current_global_coordinates = self.initial_global_coordinates
         log('Expected distance to travel : {}'.format(expected_distance), \
