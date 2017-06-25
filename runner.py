@@ -484,6 +484,9 @@ class ROSHandler(object):
         while self.mission_on:
             fail_g, message  = self.check_failure_flags(failure_flags)
             if fail_g:
+                log('Mission Failed. Command to land will start now.', self.quiet, \
+                    self.log_in_file)
+                self.ros_command_land(1)
                 self.mission_on = False
                 self.report.update_failure_flag(message)
             self.report.update_quality_attributes_report(self.get_quality_attributes())
