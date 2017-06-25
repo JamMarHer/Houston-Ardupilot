@@ -75,12 +75,17 @@ class ROSHandler(object):
         # added to hable specific intents (meaning intents to each location or action)
         self.starting_values_current_action = {}
         self.current_action                 = -1
+        self.total_distance_traveled        =  0
 
     # Checks that MAVROS node is running
     def check_mavros(self):
         m = xmlrpclib.ServerProxy(os.environ['ROS_MASTER_URI'])
         code, status_message, uri = m.lookupNode('/mavros', '/mavros')
         return code == 1
+
+    def update_distance_traveled(self, _from, _to):
+        self.total_distance_traveled += euclidean(_from, _to)
+
 
     # Verifies that the system has reached its correct position by comparing
     # the distance between the current model position and the position where is
@@ -89,14 +94,20 @@ class ROSHandler(object):
         position = pose.pose.position
         local_action_time = time.time()
         r = rospy.Rate(10)
-
+        previous_location = get_gazebo_model_positon()
         remaining_distance = euclidean((position.x, position.y), \
             (self.current_model_position[0], self.current_model_position[1]))
         while remaining_distance > ERROR_LIMIT_DISTANCE  and self.mission_on:
             r.sleep()
             pub.publish(pose)
+
+            current_location = get_gazebo_model_positon()
+            self.update_distance_traveled((previous_location.x, previous_location.y), \
+                (current_location.x, current_location.y))
+            previous_location = current_location
+
             local_action_time = self.timer_log(local_action_time, 2, 'Remaining: \
-                {}'.format(remaining_distance)) # TODO
+                {}, Distance traveled: {}'.format(remaining_distance, self.total_distance_traveled)) # TODO
             remaining_distance = euclidean((pose.pose.position.x,pose.pose.position.y), \
                 (self.current_model_position[0], self.current_model_position[1]))
         # This is done to double check, that the current position is the actual
@@ -369,7 +380,6 @@ class ROSHandler(object):
                 'Battery': self.battery[0] - self.battery[1], \
                 'MinHeight': self.min_max_height[0], \
                 'MaxHeight': self.min_max_height[1]}
-
 
     # Checks if the current state of the system violates an intent.
     def check_general_intents(self, intents, current_report_data):
