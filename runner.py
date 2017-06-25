@@ -552,10 +552,8 @@ class Report(object):
         self.failure_flags_report = data
 
     def update_action_output(self, action, output):
-        print 'UPDATINGGGGGGGGGGGGGGGGGGGGg'
         if self.action_output == None:
             self.action_output = {}
-            print 'RESEEEEEEEEEEEEEEEEEET'
         self.action_output[action] = dict(output)
 
     def get_action_output(self):
