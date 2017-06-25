@@ -567,6 +567,7 @@ class Report(object):
         data_to_dump['Map'] = self.mission_info.map
         data_to_dump['LaunchFile'] = self.mission_info.launch_file
         data_to_dump['OverallTime'] = str(time.time() - self.ros_handler.starting_time)
+        data_to_dump['TotalDistanceTraveled'] = self.ros_handler.total_distance_traveled
         data_to_dump['QualityAttributes'] = self.quality_attributes_report
         data_to_dump['ActionOutput'] = self.action_output
         data_to_dump['Genral-Intents'] = self.general_intents_report
