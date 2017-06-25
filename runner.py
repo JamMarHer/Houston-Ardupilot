@@ -485,7 +485,7 @@ class ROSHandler(object):
             fail_g, message  = self.check_failure_flags(failure_flags)
             if fail_g:
                 self.mission_on = False
-                report.update_failure_flag(message)
+                self.report.update_failure_flag(message)
             self.report.update_quality_attributes_report(self.get_quality_attributes())
             self.report.update_general_intents_report(self.check_general_intents(\
                 intents['General'], self.report.get_general_intent_report()))
