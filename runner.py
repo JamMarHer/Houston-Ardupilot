@@ -3,9 +3,11 @@
 # TODO: Description!
 
 import time
+import datetime
 import json
 import os
 import sys
+import errno
 import thread
 import signal
 import math
@@ -30,6 +32,7 @@ ERROR_LIMIT_DISTANCE          = .3 # 30cm TODO: pick a better name
 TIME_INFORM_RATE              = 10 # seconds. How often log time
 STABLE_BUFFER_TIME            = 5.0  # Seconds time to wait after each command
 ROBOT_MODEL_NAME              = 'iris_demo' # name of the model being used in gazebo
+OUTPUT_FOLDER                 = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
 
 # Error needs further handling
@@ -574,23 +577,20 @@ class Report(object):
         data_to_dump['Specific-Intents'] = self.specific_intents_report
         data_to_dump['Failure Flags'] = self.failure_flags_report
         report_present = 0
+        report_file = 'outputs/{}/report.json'.format(OUTPUT_FOLDER)
         try:
-            report_present = os.stat("report.json").st_size
-
+            report_present = os.stat(report_file).st_size
         except:
             log('No previous report found. Creating a new one', self.ros_handler.quiet, \
             self.ros_handler.log_in_file)
         if report_present == 0:
             report = {'Reports': {'0': data_to_dump}}
-            with open("report.json", 'w') as file:
-                json.dump(report, file, sort_keys=True, indent=4, separators=\
-                (',', ': '))
+            write_json_report(report_file, report)
         else:
-            report = open_json_file('report.json')
+            report = open_json_file(report_file)
             report['Reports'][str(len(report['Reports']) )] =  data_to_dump
-            with open("report.json", 'w') as file:
-                json.dump(report, file, sort_keys=True, indent=4, separators=\
-                (',', ': '))
+            write_json_report(report_file, report)
+
 
 
 class Mission(object):
@@ -783,20 +783,21 @@ def get_gazebo_model_positon(from_outside_mission = False):
 # Starts the actual mission (Test).
 def start_test(mission_description, quiet, log_in_file):
     check_json(mission_description)
-    with open('random_json.json', 'w') as file:
-        json.dump(mission_description, file, sort_keys=True, indent=4, separators=\
-        (',', ': '))
     mission = Mission(mission_description['MDescription'])
     mission_results = mission.execute(quiet, log_in_file)
 
 # Handles random missions, loops through the quantity of missions wanted and executes,
 # them.
-def start_random_mission(mission_type, quantity, quiet, log_in_file):
+def start_random_mission(mission_type, quantity, quiet, log_in_file, save_missions):
+
     for x in range(0, int(quantity)):
         randomGenerator = RandomMissionGenerator.RandomMissionGenerator('random',\
             get_gazebo_model_positon(True))
-        start_test(randomGenerator.generate_random_mission(mission_type), quiet, \
-        log_in_file)
+        random_mission = randomGenerator.generate_random_mission(mission_type)
+        if save_missions:
+            write_json_report('outputs/{}/missions/{}.json'.format(OUTPUT_FOLDER, x),\
+                random_mission)
+        start_test(random_mission, quiet,log_in_file)
 
 def analyze_report(json_file):
     report = open_json_file(json_file)
@@ -813,8 +814,23 @@ def open_json_file(json_file):
         json_file = json.load(file)
     return json_file
 
+def make_parent_dirs(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
+
+def safe_open(path):
+    print path
+    if '/' in path:
+        make_parent_dirs(os.path.dirname(path))
+    return open(path, 'w')
+
 def write_json_report(json_file, report_data):
-    with open(json_file, 'w') as file:
+    log('Writting file: {}'.format(json_file), False, False)
+    with safe_open(json_file) as file:
         json.dump(report_data, file, sort_keys=True, indent=4, separators=\
         (',', ': '))
 
@@ -831,6 +847,8 @@ def main():
         required = False)
     parser.add_argument('-q', '--quiet', action='store_true', required=False, \
         default = False)
+    parser.add_argument('-s', '--save_missions', action='store_true', required=False,\
+        default = False)
 
     # One random mission, allows to select one mission type with random parameters
     random_mission_parser = subparsers.add_parser('random-mission')
@@ -839,9 +857,10 @@ def main():
         RDM - Random selection (any of PTP, MTP or EXTR)')
     random_mission_parser.add_argument('quantity', help='How many missions you \
         want to be executed')
+
     random_mission_parser.set_defaults(func = lambda args: \
         start_random_mission(args.mission_type, args.quantity, args.quiet,\
-         args.log_in_file))
+         args.log_in_file, args.save_missions))
 
     # Gets mission instructions from a json file
     report_analyzer_parser = subparsers.add_parser('analyze-report')
@@ -855,6 +874,7 @@ def main():
          file with mission instructions.')
     json_mission_parser.set_defaults(func = lambda args: start_json_mission(\
         args.json_file, args.quiet, args.log_in_file))
+
 
     args = parser.parse_args()
     if 'func' in vars(args):
