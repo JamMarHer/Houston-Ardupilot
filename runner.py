@@ -516,6 +516,13 @@ class Report(object):
 
 class Mission(object):
 
+    def __init__(self, mission_info):
+        self.robot_type         = mission_info['RobotType']
+        self.launch_file        = mission_info['LaunchFile']
+        self.map                = mission_info['Map']
+        self.mission_info       = mission_info['Mission']
+        self.missions_supported = ('PTP', 'MPTP', 'Extraction')
+
     # Checks that everything is the for the mission execution. It also starts,
     # ROSHandler and starts Houston's node
     def initial_check(self):
@@ -645,13 +652,6 @@ class Mission(object):
         except Exception:
             raise
         print success_report
-
-    def __init__(self, mission_info):
-        self.robot_type         = mission_info['RobotType']
-        self.launch_file        = mission_info['LaunchFile']
-        self.map                = mission_info['Map']
-        self.mission_info       = mission_info['Mission']
-        self.missions_supported = ('PTP', 'MPTP', 'Extraction')
 
 
 # Checks that JSON file meets the requirements to start the mission.
