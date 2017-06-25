@@ -95,7 +95,8 @@ class ROSHandler(object):
         while remaining_distance > ERROR_LIMIT_DISTANCE  and self.mission_on:
             r.sleep()
             pub.publish(pose)
-            local_action_time = self.timer_log(local_action_time, 2, 'Remaining: {}'.format(remaining_distance)) # TODO
+            local_action_time = self.timer_log(local_action_time, 2, 'Remaining: \
+                {}'.format(remaining_distance)) # TODO
             remaining_distance = euclidean((pose.pose.position.x,pose.pose.position.y), \
                 (self.current_model_position[0], self.current_model_position[1]))
         # This is done to double check, that the current position is the actual
@@ -112,7 +113,8 @@ class ROSHandler(object):
         while self.current_model_position[2] >= ERROR_LIMIT_DISTANCE and \
             self.mission_on:
             local_action_time = self.timer_log(local_action_time, 5, \
-            'Waiting to reach land. Goal: ~0 - Current: {}'.format(self.current_model_position[2]))
+            'Waiting to reach land. Goal: ~0 - Current: {}'.format(\
+                self.current_model_position[2]))
         if self.current_model_position[2] >= ERROR_LIMIT_DISTANCE:
             return False, 'System did not land on time'
         time.sleep(wait)
@@ -228,7 +230,8 @@ class ROSHandler(object):
             x_distance, y_distance)
         expected_coor = (expected_lat, expected_long)
         log('Using coordinates: initial: {} -  expected: {}'.format(\
-            self.initial_global_coordinates, expected_coor), self.quiet, self.log_in_file)
+            self.initial_global_coordinates, expected_coor), self.quiet, \
+                self.log_in_file)
         return  distance.great_circle(self.initial_global_coordinates, \
         expected_coor).meters
 
@@ -265,7 +268,8 @@ class ROSHandler(object):
             expected_distance = distance.great_circle(self.initial_global_coordinates, \
                 expected_coor).meters
             log('Using home coordinates: initial: {} -  expected: {}'.format(\
-                self.initial_global_coordinates, expected_coor), self.quiet, self.log_in_file)
+                self.initial_global_coordinates, expected_coor), self.quiet, \
+                    self.log_in_file)
         else:
             expected_distance = self.get_the_expected_distance_from_lat_long(target)
 
@@ -341,16 +345,22 @@ class ROSHandler(object):
     def check_failure_flags(self, failure_flags):
         current_time = time.time() - self.starting_time
         if time.time() - self.starting_time >= float(failure_flags['Time']):
-            return True, 'Time exceeded: Expected: {} Current: {}'.format(failure_flags['Time'], current_time)
+            return True, 'Time exceeded: Expected: {} Current: {}'.format(\
+                failure_flags['Time'], current_time)
+        # Checks battery
         elif self.battery[0] - self.battery[1] >= float(failure_flags['Battery']):
             return True, 'Battery exceeded: Expected: {} - Current: {} - Time: {}'.\
-            format(failure_flags['Battery'], (self.battery[0] - self.battery[1]), current_time)
+                format(failure_flags['Battery'], (self.battery[0] - self.battery[1]), \
+                current_time)
+        # Checks max height
         elif self.min_max_height[1]  >= float(failure_flags['MaxHeight']):
             return True, 'Max height exceeded: Expected: {} - Current: {} - Time: {}'.\
-            format(failure_flags['MaxHeight'], self.min_max_height[1], current_time)
-        elif self.min_max_height[0] != -1 and self.min_max_height[0] <= float(failure_flags['MinHeight']):
+                format(failure_flags['MaxHeight'], self.min_max_height[1], current_time)
+        # Checks min height
+        elif self.min_max_height[0] != -1 and self.min_max_height[0] <= float(\
+            failure_flags['MinHeight']):
             return True, 'Min height exceeded: Expected: {} - Current: {} - Time: {}'.\
-            format(failure_flags['MinHeight'], self.min_max_height[0], current_time)
+                format(failure_flags['MinHeight'], self.min_max_height[0], current_time)
         return False, None
 
     # Updates quality attributes.
@@ -365,34 +375,49 @@ class ROSHandler(object):
     def check_general_intents(self, intents, current_report_data):
         current_time =  time.time() - self.starting_time
         current_battery_used = self.battery[0] - self.battery[1]
+        # Checks time
         if current_time >= float(intents['Time']):
             current_report_data['Time'] = {'Time':current_time,'Success':False}
+        # Checks Battery
         if current_battery_used >= float(intents['Battery']):
             current_report_data['Battery'] = {'Time':current_time, 'Success':False, \
-            'Current-Battery': current_battery_used, 'Intended-Battery': intents['Battery'] }
+            'Current-Battery': current_battery_used, 'Intended-Battery': \
+                intents['Battery'] }
+        # Checks max height
         if self.min_max_height[1] >= float(intents['MaxHeight']):
             current_report_data['MaxHeight'] = {'Time':current_time, 'Success':False, \
-            'Current-MaxHeight': self.min_max_height[1], 'Intended-MaxHeight': intents['MaxHeight']}
+            'Current-MaxHeight': self.min_max_height[1], 'Intended-MaxHeight': \
+                intents['MaxHeight']}
+        # Checks min height
         if not self.lock_min_height and self.min_max_height[0] <= float(intents['MinHeight']):
             current_report_data['MinHeight'] = {'Time':current_time, 'Success':False, \
-            'Current-MinHeight': self.min_max_height[0], 'Intended-MinHeight': intents['MinHeight']}
+            'Current-MinHeight': self.min_max_height[0], 'Intended-MinHeight': \
+                intents['MinHeight']}
         return current_report_data
 
     # Checks the intents for a specific portion of the mission.
     def check_specific_intents(self, intents, current_report_data):
         specific_intent_current_time = time.time() - self.starting_values_current_action['Time']
         specific_intent_current_battery = self.starting_values_current_action['Battery'] - self.battery[1]
+        # Checks time
         if specific_intent_current_time >= float(intents['Time']):
-            current_report_data['Time'] = {'Curremt-Time':specific_intent_current_time, 'Intended-Time': intents['Time'],'Success':False}
+            current_report_data['Time'] = {'Curremt-Time':specific_intent_current_time, \
+                'Intended-Time': intents['Time'],'Success':False}
+        # Checks Battery
         if specific_intent_current_battery >= float(intents['Battery']):
-            current_report_data['Battery'] = {'Time':specific_intent_current_time, 'Success':False, \
-            'Current-Battery': specific_intent_current_battery, 'Intended-Battery': intents['Battery'] }
+            current_report_data['Battery'] = {'Time':specific_intent_current_time, \
+                'Success':False, 'Current-Battery': specific_intent_current_battery, \
+                'Intended-Battery': intents['Battery'] }
+        # Checks max height
         if self.current_odom_position[2] >= float(intents['MaxHeight']):
-            current_report_data['MaxHeight'] = {'Time':specific_intent_current_time, 'Success':False, \
-            'Current-MaxHeight': self.min_max_height[1], 'Intended-MaxHeight': intents['MaxHeight']}
+            current_report_data['MaxHeight'] = {'Time':specific_intent_current_time, \
+                'Success':False, 'Current-MaxHeight': self.min_max_height[1], \
+                'Intended-MaxHeight': intents['MaxHeight']}
+        # Checks min height
         if not self.lock_min_height and self.current_odom_position[2] <= float(intents['MinHeight']):
-            current_report_data['MinHeight'] = {'Time':currentspecific_intent_current_time_time, 'Success':False, \
-            'Current-MinHeight': self.current_odom_position[2], 'Intended-MinHeight': intents['MinHeight']}
+            current_report_data['MinHeight'] = {'Time':currentspecific_intent_current_time_time, \
+                'Success':False, 'Current-MinHeight': self.current_odom_position[2], \
+                'Intended-MinHeight': intents['MinHeight']}
         return current_report_data
 
     # Starts four subscribers to populate the system's location, system battery and
@@ -420,12 +445,13 @@ class ROSHandler(object):
                 self.mission_on = False
                 report.update_failure_flag(message)
             report.update_quality_attributes_report(self.get_quality_attributes())
-            report.update_general_intents_report(self.check_general_intents(intents['General'], \
-                report.get_general_intent_report()))
+            report.update_general_intents_report(self.check_general_intents(\
+                intents['General'], report.get_general_intent_report()))
             if self.current_action != -1:
                 report.update_specific_intents_report(self.check_specific_intents\
-                (intents['Specific'][self.current_action], report.get_specific_intent_report\
-                (self.current_action)), self.current_action)
+                    (intents['Specific'][self.current_action], \
+                    report.get_specific_intent_report(self.current_action)), \
+                    self.current_action)
         report.generate()
 
     # Sets the mission to over, which would stop all while loops related to the
@@ -433,6 +459,8 @@ class ROSHandler(object):
     def ros_set_mission_over(self):
         self.mission_on = False
 
+    # Updates the number of the current action. This is used for multiple point
+    # to point mission. It allow the program to check for specific intents.
     def ros_update_current_action(self, action):
         self.current_action = action
         self.starting_values_current_action = {}
@@ -527,7 +555,8 @@ class Mission(object):
     # ROSHandler and starts Houston's node
     def initial_check(self):
         if self.mission_info['Action']['Type'] not in self.missions_supported:
-            error('Mission: {}. Not supported.'.format(self.mission_info['Action']['Type']), False, False)
+            error('Mission: {}. Not supported.'.format(self.mission_info['Action']\
+                ['Type']), False, False)
             exit()
         ros = ROSHandler('mavros')
         main = rospy.init_node('HoustonMonitor')
