@@ -52,6 +52,8 @@ def log(to_log, quiet, log_in_file, nature = 'LOG'):
 class ROSHandler(object):
     def __init__ (self, target):
         self.mission_info               = None
+        # Report gets initialized in monitor
+        self.report                     = None
         # mission_on is used to mark if the mission is on going. Monitor updates,
         # mission_on to false if the mission has failed.
         self.mission_on                 = True
@@ -84,7 +86,9 @@ class ROSHandler(object):
         return code == 1
 
     def update_distance_traveled(self, _from, _to):
-        self.total_distance_traveled += euclidean(_from, _to)
+        distance = euclidean(_from, _to)
+        self.total_distance_traveled += distance
+        return distance
 
 
     # Verifies that the system has reached its correct position by comparing
@@ -97,25 +101,31 @@ class ROSHandler(object):
         previous_location = get_gazebo_model_positon()
         remaining_distance = euclidean((position.x, position.y), \
             (self.current_model_position[0], self.current_model_position[1]))
+        expected_distance = float(remaining_distance)
+        local_distance_traveled = 0
         while remaining_distance > ERROR_LIMIT_DISTANCE  and self.mission_on:
             r.sleep()
             pub.publish(pose)
 
             current_location = get_gazebo_model_positon()
-            self.update_distance_traveled((previous_location.x, previous_location.y), \
-                (current_location.x, current_location.y))
+            local_distance_traveled += self.update_distance_traveled((\
+                previous_location.x, previous_location.y), (current_location.x, \
+                current_location.y))
             previous_location = current_location
 
-            local_action_time = self.timer_log(local_action_time, 2, 'Remaining: \
-                {}, Distance traveled: {}'.format(remaining_distance, self.total_distance_traveled)) # TODO
+            local_action_time = \
+                self.timer_log(local_action_time, 2, 'Remaining: {}, Distance traveled: {}'.\
+                format(remaining_distance, self.total_distance_traveled)) # TODO
             remaining_distance = euclidean((pose.pose.position.x,pose.pose.position.y), \
                 (self.current_model_position[0], self.current_model_position[1]))
         # This is done to double check, that the current position is the actual
         # goal position.
         if remaining_distance > ERROR_LIMIT_DISTANCE:
-            return (False, position), 'System did not reached location on time'
+            return (False, position), 'System did not reached location on time',\
+                (expected_distance, local_distance_traveled)
         time.sleep(STABLE_BUFFER_TIME)
-        return (True, position), 'System reached location'
+        return (True, position), 'System reached location', (expected_distance,\
+            local_distance_traveled)
 
     # Makes sure that the system has landed.
     def check_land_completion(self, alt, wait = STABLE_BUFFER_TIME):
@@ -177,9 +187,12 @@ class ROSHandler(object):
         else:
             error("System did not take off.", self.quiet, self.log_in_file)
 
-        return_data, message = self.check_takeoff_completion(alt)
+        pass_fail, message = self.check_takeoff_completion(alt)
         log(message, self.quiet, self.log_in_file)
-        return return_data
+
+        self.report.update_action_output('Takeoff', {'Time': time.time() - self.starting_time,
+            'Output': pass_fail})
+        return pass_fail
 
     # Makes a service call to coomand the system to land
     def ros_command_land(self, alt, wait = None):
@@ -188,9 +201,11 @@ class ROSHandler(object):
             log("System landing...", self.quiet, self.log_in_file)
         else:
             error("System is not landing.", self.quiet, self.log_in_file)
-        return_data, message = self.check_land_completion(alt)
+        pass_fail, message = self.check_land_completion(alt)
         log(message, self.quiet, self.log_in_file)
-        return return_data
+        self.report.update_action_output('Land', {'Time': time.time() - self.starting_time,
+            'Output': pass_fail})
+        return pass_fail
 
     # Gets the current x and y values using latitude and longitud instead of
     # getting the values form local posiiton (odom)
@@ -288,10 +303,24 @@ class ROSHandler(object):
         log('Expected distance to travel : {}'.format(expected_distance), \
             self.quiet, self.log_in_file)
 
-        return_data, message = self.check_go_to_completion(expected_coor, pose, \
-            go_to_publisher)
+
+        current_model_position = get_gazebo_model_positon()
+        cmp = current_model_position
+
+        pass_fail, message, distance_metrics = self.check_go_to_completion(\
+            expected_coor, pose, go_to_publisher)
         log(message, self.quiet, self.log_in_file)
-        return return_data
+
+
+        self.report.update_action_output('GoTo_{}'.format(self.current_action), \
+            {'Time': time.time() - self.starting_time,'Output': pass_fail[0], \
+            'Goal':{'From':{'x': float(-cmp.y), 'y': float(cmp.x), 'z': float(cmp.z)}, \
+                    'To': {'x': float(target['x']), 'y': float(target['y']), 'z': float(target['z']) }}, \
+            'DistanceTraveled': \
+                    {'Expected': distance_metrics[0],\
+                     'Traveled': distance_metrics[1]}})
+
+        return pass_fail
 
     # Callback for model position sub. It also updates the min and the max height
     def ros_monitor_callback_model_position_gazebo(self, data):
@@ -446,23 +475,22 @@ class ROSHandler(object):
     # Updates intents, quality attributes and checks failure_flags.
     # Sends all the data to the report generator.
     def ros_monitor(self, quality_attributes, intents, failure_flags):
+        self.report = Report(self, self.mission_info, len(intents['Specific']))
         self.start_subscribers()
-        report = Report(self, self.mission_info, len(intents['Specific']))
 
         while self.mission_on:
             fail_g, message  = self.check_failure_flags(failure_flags)
             if fail_g:
                 self.mission_on = False
                 report.update_failure_flag(message)
-            report.update_quality_attributes_report(self.get_quality_attributes())
-            report.update_general_intents_report(self.check_general_intents(\
-                intents['General'], report.get_general_intent_report()))
+            self.report.update_quality_attributes_report(self.get_quality_attributes())
+            self.report.update_general_intents_report(self.check_general_intents(\
+                intents['General'], self.report.get_general_intent_report()))
             if self.current_action != -1:
-                report.update_specific_intents_report(self.check_specific_intents\
+                self.report.update_specific_intents_report(self.check_specific_intents\
                     (intents['Specific'][self.current_action], \
-                    report.get_specific_intent_report(self.current_action)), \
+                    self.report.get_specific_intent_report(self.current_action)), \
                     self.current_action)
-        report.generate()
 
     # Sets the mission to over, which would stop all while loops related to the
     # check of a action execution.
@@ -479,20 +507,23 @@ class ROSHandler(object):
 
     # Populates the mission info, quiet, and log in file.
     def ros_set_mission_info(self, mission_info, quiet, log_in_file):
-        self.mission_info = mission_info
-        self.quiet = quiet
-        self.log_in_file =  log_in_file
+        self.mission_info    = mission_info
+        self.quiet           = quiet
+        self.log_in_file     = log_in_file
 
 class Report(object):
 
     def __init__(self, ros_handler, mission_info, number_of_locations):
-        self.ros_handler = ros_handler
-        self.mission_info     = mission_info
+        self.ros_handler                  = ros_handler
+        self.mission_info                 = mission_info
         self.quality_attributes_report    = []
         self.failure_flags_report         = 'Success'
         self.general_intents_report       = {}
         self.specific_intents_report      = [{}]
+        self.action_output                = {}
         self.current_time                 = time.time()
+        self.total_distance_traveled      = ros_handler.total_distance_traveled
+        self.action_output                = None
         for x in range(0, number_of_locations - 1):
             self.specific_intents_report.append({})
 
@@ -520,6 +551,16 @@ class Report(object):
     def update_failure_flag(self, data):
         self.failure_flags_report = data
 
+    def update_action_output(self, action, output):
+        print 'UPDATINGGGGGGGGGGGGGGGGGGGGg'
+        if self.action_output == None:
+            self.action_output = {}
+            print 'RESEEEEEEEEEEEEEEEEEET'
+        self.action_output[action] = dict(output)
+
+    def get_action_output(self):
+        self.action_output['TotalDistanceTraveled'] = self.ros_handler.total_distance_traveled
+
     # Generates a report in JSON format
     def generate(self):
         data_to_dump = {}
@@ -529,6 +570,7 @@ class Report(object):
         data_to_dump['LaunchFile'] = self.mission_info.launch_file
         data_to_dump['OverallTime'] = str(time.time() - self.ros_handler.starting_time)
         data_to_dump['QualityAttributes'] = self.quality_attributes_report
+        data_to_dump['ActionOutput'] = self.action_output
         data_to_dump['Genral-Intents'] = self.general_intents_report
         data_to_dump['Specific-Intents'] = self.specific_intents_report
         data_to_dump['Failure Flags'] = self.failure_flags_report
@@ -690,6 +732,7 @@ class Mission(object):
             sys.exit(0)
         except Exception:
             raise
+        ros.report.generate()
         print success_report
 
 
