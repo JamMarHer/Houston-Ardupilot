@@ -78,4 +78,5 @@ To simplify the test environment we use [docker-compose](https://docs.docker.com
   ```
   python runner.py random-mission PTP 1
   ```
+  If you want to store the mission instructions just add -s before random mission. 
   Hopefully you can see the magic happen.
