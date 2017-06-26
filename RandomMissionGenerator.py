@@ -1,6 +1,6 @@
 import random
 import math
-from runner import euclidean
+from houston import euclidean
 QUALITY_ATTRUBUTE_INFORM_RATE = 5
 FAILURE_FLAG_SHUTDOWN         = True
 
