@@ -826,7 +826,6 @@ def make_parent_dirs(path):
         else: raise
 
 def safe_open(path):
-    print path
     if '/' in path:
         make_parent_dirs(os.path.dirname(path))
     return open(path, 'w')
