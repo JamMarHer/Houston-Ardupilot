@@ -54,7 +54,7 @@ We use docker [containers](https://www.docker.com/what-docker) to facilitate the
 
 
 ## Running Houston
-To simplify the test environment we use [docker-compose](https://docs.docker.com/compose/) for roscore, mavros, and ardupilot.
+To simplify the test environment we use [docker-compose](https://docs.docker.com/compose/) for roscore, mavros, and ardupilot. It is possible to also run each docker container individually, just keep in mind that you would need three terminals for roscore, mavros, and ardupilot. 
 
   * **Docker-compose**:
   ```
