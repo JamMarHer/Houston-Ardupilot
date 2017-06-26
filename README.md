@@ -17,7 +17,7 @@ Having data available regarding the performance of the system allows us to under
 * Power consumption
 * Max height
 * Min height
-* Distance traveled (TODO)
+* Distance traveled 
 
 Quality attributes are reported every given time frame, meaning that we have to pass a *ReportRate* value in quality attributes
 
@@ -29,6 +29,7 @@ Intents are expectations for the system under test. Intents can vary depending o
 
 ### 1.3 Failure Failure Flags
 As with intents, failure flags bound a mission, with the difference that if such "intent" is unmet, the mission stops and immediately marks the test as failed.
+
 
 ### 1.4 Missions
 We now present three missions. We use JSON files to pass all the mission information to Houston which executes and monitors the mission.  
