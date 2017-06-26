@@ -457,7 +457,7 @@ class ROSHandler(object):
                 'Intended-MaxHeight': intents['MaxHeight']}
         # Checks min height
         if not self.lock_min_height and self.current_odom_position[2] <= float(intents['MinHeight']):
-            current_report_data['MinHeight'] = {'Time':currentspecific_intent_current_time_time, \
+            current_report_data['MinHeight'] = {'Time':specific_intent_current_time, \
                 'Success':False, 'Current-MinHeight': self.current_odom_position[2], \
                 'Intended-MinHeight': intents['MinHeight']}
         return current_report_data
