@@ -40,6 +40,63 @@ action['goto'] = Action(
     ],
     # Invariants
     [
+        Invariants('battery', lambda : system_variables['battery'] > 0)
+        Invariants('system_armed', lambda : system_variables['armed'] == True, 'description')
+        Invariants('altitude', lambda : system_variables['altitude'] > -0.3, 'description')
+    ],
+    # Postconditions
+    [
+        # get sv from parameters
+        Postcondition('altitude', lambda sv: sv['alt'] - 0.3 < system_variables['altitude'] < sv['alt'] + 0.3)
+        Postcondition('battery', lambda : system_variables['battery'] > 0 )
+        Postcondition('time', lambda : max_expected_time > time.time() - system_variables['time'])
+
+    ]
+)
+
+action['land'] = Action(
+    # Description
+    'Commands the system to go to a specific location.',
+
+    # Preconditions
+    [
+        # get sv from parameters, I think there's no need for lambdas here
+        Precondition('battery', lambda : system_variables['battery'] >= max_expected_battery_usage\
+        (None, None, 0), 'description')
+        Precondition('altitude', lambda : system_variables['altitude'] > 0.3, 'description')
+        Precondition('armed', lambda : system_variables['armed'] == True, 'description')
+    ],
+    # Invariants
+    [
+        Invariants('battery', lambda : system_variables['battery'] > 0)
+    ],
+    # Postconditions
+    [
+        # get sv from parameters
+        Postcondition('altitude', lambda : system_variables['altitude'] < 0.3, 'description')
+        Postcondition('battery', lambda : system_variables['battery'] > 0, 'description')
+        Postcondition('time', lambda : max_expected_time(None, None, 0) > time.time() - system_variables['time'], 'description')
+        Precondition('armed', lambda : system_variables['armed'] == False, 'description')
+    ]
+)
+
+action['takeoff'] = Action(
+    # Description
+    'Commands the system to go to a specific location.',
+    # Parameters
+    [
+        Parameter('altitude', float, 'description')
+    ],
+    # Preconditions
+    [
+        # get sv from parameters, I think there's no need for lambdas here
+        Precondition('battery', lambda sv: system_variables['battery'] >= max_expected_battery_usage\
+        (None, None, sv['altitude']), 'description')
+        Precondition('altitude', lambda : system_variables['altitude'] < 0.3, 'description')
+        Precondition('armed', lambda : system_variables['armed'] == True, 'description')
+    ],
+    # Invariants
+    [
         Invariants('system_armed', lambda : system_variables['armed'] == True, 'description')
         Invariants('altitude', lambda : system_variables['altitude'] > -0.3, 'description')
     ],
