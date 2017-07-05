@@ -6,6 +6,7 @@ xhost local:root
 docker run --rm \
   -e DISPLAY=unix$DISPLAY \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
+  --network=host \
   -it \
-  houston \
+  $1 \
   /bin/bash
