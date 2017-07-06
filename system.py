@@ -175,7 +175,7 @@ class GoToActionSchema(ActionSchema):
                          lambda sv: sv['battery'].read() >= max_expected_battery_usage(
                          parameters[0].get_value,
                          parameters[1].get_value,
-                         parameters[2].get_value),
+                         parameters[2].get_value)),
             Precondition('altitude', 'description',
                          lambda sv: sv['altitude'].read() > 0)
         ]
