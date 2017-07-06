@@ -145,7 +145,7 @@ class SetModeActionSchema(ActionSchema):
         ]
         postconditions = [
             Postcondition('mode', 'description',
-                          lambda sv: sv['mode'].read() == parameters[0].get_value())
+                          lambda sv: sv['mode'].read() == parameters[0].get_value)
         ]
         invariants = [
             Invariant('battery', 'description',
@@ -173,9 +173,9 @@ class GoToActionSchema(ActionSchema):
 
             Precondition('battery', 'description',
                          lambda sv: sv['battery'].read() >= max_expected_battery_usage(
-                         parameters[0].get_value(),
-                         parameters[1].get_value(),
-                         parameters[2].get_value())),
+                         parameters[0].get_value,
+                         parameters[1].get_value,
+                         parameters[2].get_value),
             Precondition('altitude', 'description',
                          lambda sv: sv['altitude'].read() > 0)
         ]
@@ -192,16 +192,16 @@ class GoToActionSchema(ActionSchema):
         postconditions = [
             Postcondition('altitude', 'description',
                           lambda sv: sv['altitude'].read() - 0.3 < \
-                            parameters[2].get_value() < sv['alt'].read() + 0.3),
+                            parameters[2].get_value < sv['alt'].read() + 0.3),
             Postcondition('battery', 'description',
                           lambda sv: sv['battery'].read() > 0 ),
             Postcondition('time', 'description',
                           # we need a "start" time (or an initial state)
                           lambda sv: time.time() - sv['time'].read() <
                           max_expected_time(
-                            parameters[0].get_value(),
-                            parameters[1].get_value(),
-                            parameters[2].get_value()))
+                            parameters[0].get_value,
+                            parameters[1].get_value,
+                            parameters[2].get_value)
         ]
 
         super(GoToActionSchema, self).__init__('goto',parameters, preconditions, invariants, postconditions)
@@ -266,7 +266,7 @@ class TakeoffActionSchema(ActionSchema):
                          max_expected_battery_usage(
                             None,
                             None,
-                            sv['altitude'].get_value())),
+                            sv['altitude'].get_value),
             Precondition('altitude', 'description',
                          lambda sv: sv['altitude'].read() < 0.3),
             Precondition('armed', 'description',
@@ -281,7 +281,7 @@ class TakeoffActionSchema(ActionSchema):
         postconditions = [
             Postcondition('altitude', 'description',
                           lambda sv: sv['alt'].read() - 0.3 < \
-                          parameters[0].get_value() < sv['alt'].read() + 0.3)
+                          parameters[0].get_value < sv['alt'].read() + 0.3)
         ]
 
     def dispatch(parameters):
