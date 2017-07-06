@@ -27,6 +27,7 @@ class ArduPilot(System):
 
     def __init__(self):
         variables = {}
+        rospy.init_node('jam')
         variables['time'] = SystemVariable('time', lambda: time.time())
         variables['altitude'] = SystemVariable('altitude',
             lambda: rospy.client.wait_for_message('/mavros/local_position/odom',
@@ -190,7 +191,7 @@ class GoToActionSchema(ActionSchema):
 
         postconditions = [
             Postcondition('altitude', 'description',
-                          lambda sv: sv['alt'].read() - 0.3 < \
+                          lambda sv: sv['altitude'].read() - 0.3 < \
                             parameters[2].get_value() < sv['alt'].read() + 0.3),
             Postcondition('battery', 'description',
                           lambda sv: sv['battery'].read() > 0 ),
