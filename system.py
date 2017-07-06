@@ -266,7 +266,7 @@ class TakeoffActionSchema(ActionSchema):
                          max_expected_battery_usage(
                             None,
                             None,
-                            sv['altitude'].get_value),
+                            sv['altitude'].get_value)),
             Precondition('altitude', 'description',
                          lambda sv: sv['altitude'].read() < 0.3),
             Precondition('armed', 'description',
