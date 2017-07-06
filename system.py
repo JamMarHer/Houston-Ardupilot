@@ -198,8 +198,9 @@ class LandActionSchema(ActionSchema):
         super().__init__('land', parameters, preconditions, invariants, postconditions)
 
 
-    def dispatch(parameters):
-        roscall()
+    def dispatch():
+        land = rospy.ServiceProxy('/mavros/cmd/land', CommandTOL)
+        land(0, 0, 0, 0, 0)
 )
 
 """
@@ -214,23 +215,26 @@ class TakeoffActionSchema(ActionSchema):
         ]
         preconditions = [
             Precondition('battery', 'description',
-                         lambda sv: system_variables['battery'] >= max_expected_battery_usage(None, None, sv['altitude'])),
+                         lambda sv: sv['battery'] >= max_expected_battery_usage(None, None, sv['altitude'])),
             Precondition('altitude', 'description',
-                         lambda : system_variables['altitude'] < 0.3),
+                         lambda sv: sv['altitude'] < 0.3),
             Precondition('armed', 'description',
-                         lambda : system_variables['armed'] == True)
+                         lambda sv: sv['armed'] == True)
         ]
         invariants = [
             Invariant('armed', 'description',
-                      lambda : system_variables['armed'] == True),
+                      lambda sv: sv['armed'] == True),
             Invariant('altitude', 'description',
-                      lambda : system_variables['altitude'] > -0.3)
+                      lambda sv: sv['altitude'] > -0.3)
         ]
         postconditions = [
             Postcondition('altitude', 'description',
-                          lambda sv: sv['alt'] - 0.3 < system_variables['altitude'])
+                          lambda sv: sv['alt'] - 0.3 < parameters[0].read() < sv['alt'] + 0.3)
         ]
-
+        
+    def dispatch(parameters):
+      takeoff = rospy.ServiceProxy('/mavros/cmd/takeoff', CommandTOL)
+      takeoff(0, 0, 0, 0, parameters[0].read()
 
 class Predicate(object):
 
@@ -264,7 +268,6 @@ class Precondition(Predicate):
         self.__name = name
         self.__description = description
         self.__predicate = predicate
-
 
 class Parameter(object):
     """docstring for ."""
