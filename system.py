@@ -201,7 +201,7 @@ class GoToActionSchema(ActionSchema):
                           max_expected_time(
                             parameters[0].get_value,
                             parameters[1].get_value,
-                            parameters[2].get_value)
+                            parameters[2].get_value))
         ]
 
         super(GoToActionSchema, self).__init__('goto',parameters, preconditions, invariants, postconditions)
